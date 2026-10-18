@@ -30,13 +30,15 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Generate Android project files
+      - name: Generate fresh Android project
         run: |
           flutter create \
             --platforms=android \
             --project-name pothochola_islamic_tracker \
             --org com.pathchola \
             /tmp/pathchola_scaffold
+
+          rm -rf android
           mkdir -p android
           cp -R /tmp/pathchola_scaffold/android/. android/
 
@@ -46,8 +48,14 @@ jobs:
             's/android:label="pothochola_islamic_tracker"/android:label="পথচলা"/' \
             android/app/src/main/AndroidManifest.xml
 
+      - name: Clean old build artifacts
+        run: flutter clean
+
       - name: Get dependencies
         run: flutter pub get
+
+      - name: Show shared preferences versions
+        run: flutter pub deps
 
       - name: Check Dart code
         run: flutter analyze
