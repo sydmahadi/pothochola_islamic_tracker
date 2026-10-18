@@ -1,0 +1,64 @@
+
+name: Build Pathchola APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate Android project files
+        run: |
+          flutter create \
+            --platforms=android \
+            --project-name pothochola_islamic_tracker \
+            --org com.pathchola \
+            /tmp/pathchola_scaffold
+          mkdir -p android
+          cp -R /tmp/pathchola_scaffold/android/. android/
+
+      - name: Set app display name
+        run: |
+          sed -i \
+            's/android:label="pothochola_islamic_tracker"/android:label="পথচলা"/' \
+            android/app/src/main/AndroidManifest.xml
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Check Dart code
+        run: flutter analyze
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pathchola-Android-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
