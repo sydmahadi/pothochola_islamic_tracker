@@ -35,9 +35,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
         english = prefs.getBool('pathchola_english') ?? false;
         darkMode = prefs.getBool('pathchola_dark') ?? false;
       });
-    } catch (_) {
-      // App remains usable with default settings.
-    }
+    } catch (_) {}
   }
 
   Future<void> _setLanguage(bool value) async {
@@ -188,20 +186,24 @@ class _TrackerHomeState extends State<TrackerHome> {
         if (decoded is Map) {
           data = {
             'goals': decoded['goals'] is List
-                ? decoded['goals']
+                ? List<dynamic>.from(decoded['goals'] as List)
                 : <dynamic>[],
             'habits': decoded['habits'] is Map
-                ? Map<String, dynamic>.from(decoded['habits'])
+                ? Map<String, dynamic>.from(decoded['habits'] as Map)
                 : <String, dynamic>{},
             'reflections': decoded['reflections'] is Map
-                ? Map<String, dynamic>.from(decoded['reflections'])
+                ? Map<String, dynamic>.from(
+                    decoded['reflections'] as Map,
+                  )
                 : <String, dynamic>{},
             'rights': decoded['rights'] is List
-                ? decoded['rights']
+                ? List<dynamic>.from(decoded['rights'] as List)
                 : <dynamic>[],
           };
         }
       }
+
+      loadError = null;
     } catch (e) {
       loadError = e.toString();
     } finally {
@@ -219,7 +221,7 @@ class _TrackerHomeState extends State<TrackerHome> {
       if (!saved && mounted) {
         showMessage(tr('তথ্য সংরক্ষণ করা যায়নি।', 'Could not save data.'));
       }
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         showMessage(tr(
           'সংরক্ষণে সমস্যা হয়েছে। আবার চেষ্টা করো।',
@@ -284,6 +286,7 @@ class _TrackerHomeState extends State<TrackerHome> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
+
     if (picked == null || !mounted) return;
 
     setState(() {
@@ -309,80 +312,86 @@ class _TrackerHomeState extends State<TrackerHome> {
         : DateTime.tryParse(old['deadline'] as String? ?? '') ??
             DateTime.now().add(const Duration(days: 30));
 
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, refresh) => AlertDialog(
-          title: Text(tr(
-            old == null ? 'নতুন লক্ষ্য' : 'লক্ষ্য সম্পাদনা',
-            old == null ? 'New goal' : 'Edit goal',
-          )),
-          content: Form(
-            key: formKey,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: titleController,
-                    decoration: InputDecoration(
-                      labelText: tr('লক্ষ্যের নাম', 'Goal title'),
+    bool saved = false;
+
+    try {
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (context, refresh) => AlertDialog(
+            title: Text(tr(
+              old == null ? 'নতুন লক্ষ্য' : 'লক্ষ্য সম্পাদনা',
+              old == null ? 'New goal' : 'Edit goal',
+            )),
+            content: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: titleController,
+                      decoration: InputDecoration(
+                        labelText: tr('লক্ষ্যের নাম', 'Goal title'),
+                      ),
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? tr('নাম লিখো', 'Enter a title')
+                          : null,
                     ),
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? tr('নাম লিখো', 'Enter a title')
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: targetController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: tr('মোট ধাপ বা দিন', 'Total steps or days'),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: targetController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: tr('মোট ধাপ বা দিন', 'Total steps or days'),
+                      ),
+                      validator: (v) {
+                        final n = int.tryParse(v ?? '');
+                        return n == null || n < 1
+                            ? tr('সঠিক সংখ্যা দাও', 'Enter a valid number')
+                            : null;
+                      },
                     ),
-                    validator: (v) {
-                      final n = int.tryParse(v ?? '');
-                      return n == null || n < 1
-                          ? tr('সঠিক সংখ্যা দাও', 'Enter a valid number')
-                          : null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.calendar_month),
-                    label: Text(dateText(deadline)),
-                    onPressed: () async {
-                      final picked = await showDatePicker(
-                        context: context,
-                        initialDate: deadline,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                      );
-                      if (picked != null) refresh(() => deadline = picked);
-                    },
-                  ),
-                ],
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.calendar_month),
+                      label: Text(dateText(deadline)),
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: deadline,
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          refresh(() => deadline = picked);
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: Text(tr('বাতিল', 'Cancel')),
+              ),
+              FilledButton(
+                onPressed: () {
+                  if (formKey.currentState!.validate()) {
+                    Navigator.pop(dialogContext, true);
+                  }
+                },
+                child: Text(tr('সংরক্ষণ', 'Save')),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
-              child: Text(tr('বাতিল', 'Cancel')),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: Text(tr('সংরক্ষণ', 'Save')),
-            ),
-          ],
         ),
-      ),
-    );
+      );
 
-    if (result == true) {
+      if (result != true || !mounted) return;
+
       final total = int.parse(targetController.text);
       final previousProgress = old?['progress'] as int? ?? 0;
 
@@ -399,11 +408,15 @@ class _TrackerHomeState extends State<TrackerHome> {
       } else {
         goals[index] = item;
       }
+
+      saved = true;
       await saveData();
+    } finally {
+      titleController.dispose();
+      targetController.dispose();
     }
 
-    titleController.dispose();
-    targetController.dispose();
+    if (saved && mounted) setState(() {});
   }
 
   Future<void> deleteGoal(int index) async {
@@ -421,6 +434,7 @@ class _TrackerHomeState extends State<TrackerHome> {
     final total = goal['total'] as int? ?? 1;
     final progress = goal['progress'] as int? ?? 0;
     final updated = (progress + change).clamp(0, total);
+
     goal['progress'] = updated;
     goals[index] = goal;
     await saveData();
@@ -464,7 +478,7 @@ class _TrackerHomeState extends State<TrackerHome> {
     reflections[today] = reflectionController.text;
     await saveData();
     if (mounted) {
-      showMessage(tr('আত্মসমালোচনা সংরক্ষিত হয়েছে।', 'Reflection saved.'));
+      showMessage(tr('আত্মসমালোচনা সংরক্ষিত হয়েছে.', 'Reflection saved.'));
     }
   }
 
@@ -477,79 +491,83 @@ class _TrackerHomeState extends State<TrackerHome> {
     DateTime due = DateTime.tryParse(old?['due'] as String? ?? '') ??
         DateTime.now().add(const Duration(days: 7));
 
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, refresh) => AlertDialog(
-          title: Text(tr(
-            old == null ? 'নতুন দায়িত্ব' : 'দায়িত্ব সম্পাদনা',
-            old == null ? 'New action' : 'Edit action',
-          )),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(tr(
-                  'যেমন: ক্ষমা চাওয়া, পাওনা ফেরত বা প্রতিশ্রুতি পূরণ।',
-                  'For example: apologise, return what is owed, or fulfil a promise.',
-                )),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: controller,
-                  maxLines: 3,
-                  decoration: InputDecoration(
-                    labelText: tr('করণীয় লিখো', 'Action to take'),
+    try {
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => StatefulBuilder(
+          builder: (context, refresh) => AlertDialog(
+            title: Text(tr(
+              old == null ? 'নতুন দায়িত্ব' : 'দায়িত্ব সম্পাদনা',
+              old == null ? 'New action' : 'Edit action',
+            )),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(tr(
+                    'যেমন: ক্ষমা চাওয়া, পাওনা ফেরত বা প্রতিশ্রুতি পূরণ।',
+                    'For example: apologise, return what is owed, or fulfil a promise.',
+                  )),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: controller,
+                    maxLines: 3,
+                    decoration: InputDecoration(
+                      labelText: tr('করণীয় লিখো', 'Action to take'),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.calendar_month),
-                  label: Text('${tr('শেষ তারিখ', 'Due')}: ${dateText(due)}'),
-                  onPressed: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: due,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (picked != null) refresh(() => due = picked);
-                  },
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.calendar_month),
+                    label: Text('${tr('শেষ তারিখ', 'Due')}: ${dateText(due)}'),
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: due,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) refresh(() => due = picked);
+                    },
+                  ),
+                ],
+              ),
             ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(tr('বাতিল', 'Cancel')),
+              ),
+              FilledButton(
+                onPressed: () {
+                  if (controller.text.trim().isNotEmpty) {
+                    Navigator.pop(ctx, true);
+                  }
+                },
+                child: Text(tr('সংরক্ষণ', 'Save')),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(tr('বাতিল', 'Cancel')),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (controller.text.trim().isNotEmpty) {
-                  Navigator.pop(ctx, true);
-                }
-              },
-              child: Text(tr('সংরক্ষণ', 'Save')),
-            ),
-          ],
         ),
-      ),
-    );
+      );
 
-    if (result == true) {
-      final item = <String, dynamic>{
-        'title': controller.text.trim(),
-        'due': due.toIso8601String(),
-        'done': old?['done'] == true,
-      };
-      if (index == null) {
-        rights.add(item);
-      } else {
-        rights[index] = item;
+      if (result == true && mounted) {
+        final item = <String, dynamic>{
+          'title': controller.text.trim(),
+          'due': due.toIso8601String(),
+          'done': old?['done'] == true,
+        };
+
+        if (index == null) {
+          rights.add(item);
+        } else {
+          rights[index] = item;
+        }
+        await saveData();
       }
-      await saveData();
+    } finally {
+      controller.dispose();
     }
-    controller.dispose();
   }
 
   Future<void> deleteRight(int index) async {
@@ -711,7 +729,7 @@ class _TrackerHomeState extends State<TrackerHome> {
         if (openRights > 0)
           reminderCard(
             tr('অসম্পূর্ণ দায়িত্ব', 'Outstanding actions'),
-            tr('$openRightsটি কাজ এখনও বাকি।',
+            tr('$openRightsটি কাজ এখনও বাকি.',
                 '$openRights action(s) remain incomplete.'),
             Icons.volunteer_activism,
           ),
@@ -730,8 +748,8 @@ class _TrackerHomeState extends State<TrackerHome> {
           final progress = g['progress'] as int? ?? 0;
           final totalSteps = g['total'] as int? ?? 1;
           final ratio = (progress / totalSteps).clamp(0.0, 1.0);
-          final deadline =
-              DateTime.tryParse(g['deadline'] as String? ?? '');
+          final deadline = DateTime.tryParse(g['deadline'] as String? ?? '');
+
           return Card(
             child: Padding(
               padding: const EdgeInsets.all(14),
@@ -849,8 +867,7 @@ class _TrackerHomeState extends State<TrackerHome> {
         )),
         const SizedBox(height: 12),
         if (rights.isEmpty)
-          Text(tr('এখন কোনো কাজ যোগ করা হয়নি।',
-              'No actions added yet.')),
+          Text(tr('এখন কোনো কাজ যোগ করা হয়নি।', 'No actions added yet.')),
         ...rights.asMap().entries.map((entry) {
           final r = Map<String, dynamic>.from(entry.value as Map);
           final due = DateTime.tryParse(r['due'] as String? ?? '') ??
@@ -911,6 +928,9 @@ class _TrackerHomeState extends State<TrackerHome> {
   }
 
   Widget reflectionScreen() {
+    final entries = reflections.entries.toList()
+      ..sort((a, b) => b.key.compareTo(a.key));
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -944,9 +964,8 @@ class _TrackerHomeState extends State<TrackerHome> {
           label: Text(tr('এই দিনের নোট সংরক্ষণ', 'Save this day’s reflection')),
         ),
         sectionTitle(tr('আগের দিনের নোট', 'Previous reflections')),
-        ...reflections.entries.toList()
-          ..sort((a, b) => b.key.compareTo(a.key))
-          ..take(30).map((entry) => Card(
+        ...entries.take(30).map((entry) {
+          return Card(
             child: ListTile(
               leading: const Icon(Icons.history),
               title: Text(entry.key),
@@ -958,19 +977,17 @@ class _TrackerHomeState extends State<TrackerHome> {
                 overflow: TextOverflow.ellipsis,
               ),
               onTap: () {
-                final parts = entry.key.split('-');
-                if (parts.length == 3) {
-                  final date = DateTime.tryParse(entry.key);
-                  if (date != null) {
-                    setState(() {
-                      selectedDay = date;
-                      reflectionController.text = currentReflection;
-                    });
-                  }
+                final date = DateTime.tryParse(entry.key);
+                if (date != null) {
+                  setState(() {
+                    selectedDay = date;
+                    reflectionController.text = currentReflection;
+                  });
                 }
               },
             ),
-          )),
+          );
+        }),
       ],
     );
   }
@@ -1045,17 +1062,16 @@ class _TrackerHomeState extends State<TrackerHome> {
                             loadError = null;
                             loading = false;
                           }),
-                          child: Text(tr('সংরক্ষিত তথ্য বাদ দিয়ে চালু করো',
-                              'Continue without loading saved data')),
+                          child: Text(tr(
+                            'সংরক্ষিত তথ্য বাদ দিয়ে চালু করো',
+                            'Continue without loading saved data',
+                          )),
                         ),
                       ],
                     ),
                   ),
                 )
-              : IndexedStack(
-                  index: tab,
-                  children: pages,
-                ),
+              : IndexedStack(index: tab, children: pages),
       floatingActionButton: !loading && loadError == null && tab == 0
           ? FloatingActionButton(
               onPressed: () => addGoal(),
