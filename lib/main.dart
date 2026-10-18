@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const PathcholaApp());
 }
@@ -19,6 +19,42 @@ class PathcholaApp extends StatefulWidget {
 
 class _PathcholaAppState extends State<PathcholaApp> {
   bool english = false;
+  bool darkMode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        english = prefs.getBool('pathchola_english') ?? false;
+        darkMode = prefs.getBool('pathchola_dark') ?? false;
+      });
+    } catch (_) {
+      // App remains usable with default settings.
+    }
+  }
+
+  Future<void> _setLanguage(bool value) async {
+    setState(() => english = value);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('pathchola_english', value);
+    } catch (_) {}
+  }
+
+  Future<void> _setTheme(bool value) async {
+    setState(() => darkMode = value);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('pathchola_dark', value);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +71,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      themeMode: darkMode ? ThemeMode.dark : ThemeMode.light,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -47,21 +84,37 @@ class _PathcholaAppState extends State<PathcholaApp> {
         appBarTheme: const AppBarTheme(
           backgroundColor: green,
           foregroundColor: Colors.white,
-          centerTitle: false,
         ),
         cardTheme: CardThemeData(
-          color: Colors.white,
           elevation: 1,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+      ),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: green,
+          secondary: gold,
+          brightness: Brightness.dark,
+        ),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF103D2B),
+          foregroundColor: Colors.white,
+        ),
+        cardTheme: CardThemeData(
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
       ),
       home: TrackerHome(
         english: english,
-        onLanguageChanged: (value) {
-          setState(() => english = value);
-        },
+        darkMode: darkMode,
+        onLanguageChanged: _setLanguage,
+        onThemeChanged: _setTheme,
       ),
     );
   }
@@ -69,12 +122,16 @@ class _PathcholaAppState extends State<PathcholaApp> {
 
 class TrackerHome extends StatefulWidget {
   final bool english;
+  final bool darkMode;
   final ValueChanged<bool> onLanguageChanged;
+  final ValueChanged<bool> onThemeChanged;
 
   const TrackerHome({
     super.key,
     required this.english,
+    required this.darkMode,
     required this.onLanguageChanged,
+    required this.onThemeChanged,
   });
 
   @override
@@ -92,63 +149,109 @@ class _TrackerHomeState extends State<TrackerHome> {
   };
 
   bool loading = true;
+  String? loadError;
   int tab = 0;
+  DateTime selectedDay = DateTime.now();
+  late final TextEditingController reflectionController;
 
   bool get en => widget.english;
 
   String tr(String bn, String english) => en ? english : bn;
 
-  String get today {
-    final d = DateTime.now();
-    return '${d.year}-${d.month.toString().padLeft(2, '0')}-'
-        '${d.day.toString().padLeft(2, '0')}';
-  }
+  String dayKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  String get today => dayKey(selectedDay);
+
+  String dateText(DateTime d) => dayKey(d);
 
   @override
   void initState() {
     super.initState();
+    reflectionController = TextEditingController();
     loadData();
   }
 
-  Future<void> loadData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_storageKey);
+  @override
+  void dispose() {
+    reflectionController.dispose();
+    super.dispose();
+  }
 
-    if (raw != null) {
-      try {
+  Future<void> loadData() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_storageKey);
+
+      if (raw != null) {
         final decoded = jsonDecode(raw);
-        if (decoded is Map<String, dynamic>) {
+        if (decoded is Map) {
           data = {
-            'goals': decoded['goals'] ?? <dynamic>[],
-            'habits': decoded['habits'] ?? <String, dynamic>{},
-            'reflections':
-                decoded['reflections'] ?? <String, dynamic>{},
-            'rights': decoded['rights'] ?? <dynamic>[],
+            'goals': decoded['goals'] is List
+                ? decoded['goals']
+                : <dynamic>[],
+            'habits': decoded['habits'] is Map
+                ? Map<String, dynamic>.from(decoded['habits'])
+                : <String, dynamic>{},
+            'reflections': decoded['reflections'] is Map
+                ? Map<String, dynamic>.from(decoded['reflections'])
+                : <String, dynamic>{},
+            'rights': decoded['rights'] is List
+                ? decoded['rights']
+                : <dynamic>[],
           };
         }
-      } catch (_) {
-        // Keep default data if a saved value cannot be decoded.
+      }
+    } catch (e) {
+      loadError = e.toString();
+    } finally {
+      if (mounted) {
+        reflectionController.text = currentReflection;
+        setState(() => loading = false);
       }
     }
-
-    if (mounted) setState(() => loading = false);
   }
 
   Future<void> saveData() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_storageKey, jsonEncode(data));
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = await prefs.setString(_storageKey, jsonEncode(data));
+      if (!saved && mounted) {
+        showMessage(tr('তথ্য সংরক্ষণ করা যায়নি।', 'Could not save data.'));
+      }
+    } catch (e) {
+      if (mounted) {
+        showMessage(tr(
+          'সংরক্ষণে সমস্যা হয়েছে। আবার চেষ্টা করো।',
+          'Saving failed. Please try again.',
+        ));
+      }
+    }
     if (mounted) setState(() {});
+  }
+
+  void showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
   }
 
   List<dynamic> get goals => data['goals'] as List<dynamic>;
   List<dynamic> get rights => data['rights'] as List<dynamic>;
 
+  Map<String, dynamic> get allHabits =>
+      data['habits'] as Map<String, dynamic>;
+
   Map<String, dynamic> get todayHabits {
-    final all = data['habits'] as Map<String, dynamic>;
-    return Map<String, dynamic>.from(
-      all[today] as Map? ?? <String, dynamic>{},
-    );
+    final raw = allHabits[today];
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    return <String, dynamic>{};
   }
+
+  Map<String, dynamic> get reflections =>
+      data['reflections'] as Map<String, dynamic>;
+
+  String get currentReflection => reflections[today] as String? ?? '';
 
   final List<String> habitBn = [
     'পাঁচ ওয়াক্ত সালাত',
@@ -174,17 +277,46 @@ class _TrackerHomeState extends State<TrackerHome> {
     'Kind behaviour',
   ];
 
-  Future<void> addGoal() async {
-    final titleController = TextEditingController();
-    final targetController = TextEditingController(text: '30');
+  Future<void> chooseDay() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: selectedDay,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) return;
+
+    setState(() {
+      selectedDay = picked;
+      reflectionController.text = currentReflection;
+    });
+  }
+
+  Future<void> addGoal({int? index}) async {
+    final old = index == null
+        ? null
+        : Map<String, dynamic>.from(goals[index] as Map);
+
+    final titleController =
+        TextEditingController(text: old?['title'] as String? ?? '');
+    final targetController = TextEditingController(
+      text: '${old?['total'] ?? 30}',
+    );
     final formKey = GlobalKey<FormState>();
-    DateTime deadline = DateTime.now().add(const Duration(days: 30));
+
+    DateTime deadline = old == null
+        ? DateTime.now().add(const Duration(days: 30))
+        : DateTime.tryParse(old['deadline'] as String? ?? '') ??
+            DateTime.now().add(const Duration(days: 30));
 
     final result = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (context, refreshDialog) => AlertDialog(
-          title: Text(tr('নতুন লক্ষ্য', 'New goal')),
+        builder: (context, refresh) => AlertDialog(
+          title: Text(tr(
+            old == null ? 'নতুন লক্ষ্য' : 'লক্ষ্য সম্পাদনা',
+            old == null ? 'New goal' : 'Edit goal',
+          )),
           content: Form(
             key: formKey,
             child: SingleChildScrollView(
@@ -196,20 +328,16 @@ class _TrackerHomeState extends State<TrackerHome> {
                     decoration: InputDecoration(
                       labelText: tr('লক্ষ্যের নাম', 'Goal title'),
                     ),
-                    validator: (v) =>
-                        v == null || v.trim().isEmpty
-                            ? tr('লক্ষ্যের নাম লিখো', 'Enter a goal')
-                            : null,
+                    validator: (v) => v == null || v.trim().isEmpty
+                        ? tr('নাম লিখো', 'Enter a title')
+                        : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: targetController,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
-                      labelText: tr(
-                        'মোট ধাপ বা দিনের সংখ্যা',
-                        'Total steps or days',
-                      ),
+                      labelText: tr('মোট ধাপ বা দিন', 'Total steps or days'),
                     ),
                     validator: (v) {
                       final n = int.tryParse(v ?? '');
@@ -221,20 +349,15 @@ class _TrackerHomeState extends State<TrackerHome> {
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.calendar_month),
-                    label: Text(
-                      '${deadline.year}-${deadline.month.toString().padLeft(2, '0')}-'
-                      '${deadline.day.toString().padLeft(2, '0')}',
-                    ),
+                    label: Text(dateText(deadline)),
                     onPressed: () async {
                       final picked = await showDatePicker(
                         context: context,
                         initialDate: deadline,
-                        firstDate: DateTime.now(),
+                        firstDate: DateTime(2000),
                         lastDate: DateTime(2100),
                       );
-                      if (picked != null) {
-                        refreshDialog(() => deadline = picked);
-                      }
+                      if (picked != null) refresh(() => deadline = picked);
                     },
                   ),
                 ],
@@ -260,13 +383,22 @@ class _TrackerHomeState extends State<TrackerHome> {
     );
 
     if (result == true) {
-      goals.add({
+      final total = int.parse(targetController.text);
+      final previousProgress = old?['progress'] as int? ?? 0;
+
+      final item = <String, dynamic>{
         'title': titleController.text.trim(),
-        'total': int.parse(targetController.text),
-        'progress': 0,
+        'total': total,
+        'progress': previousProgress.clamp(0, total),
         'deadline': deadline.toIso8601String(),
-        'created': DateTime.now().toIso8601String(),
-      });
+        'created': old?['created'] ?? DateTime.now().toIso8601String(),
+      };
+
+      if (index == null) {
+        goals.add(item);
+      } else {
+        goals[index] = item;
+      }
       await saveData();
     }
 
@@ -274,57 +406,127 @@ class _TrackerHomeState extends State<TrackerHome> {
     targetController.dispose();
   }
 
-  Future<void> addRight() async {
-    final titleController = TextEditingController();
-    DateTime due = DateTime.now().add(const Duration(days: 7));
+  Future<void> deleteGoal(int index) async {
+    final confirmed = await confirmDelete(
+      tr('লক্ষ্য মুছে ফেলবে?', 'Delete this goal?'),
+    );
+    if (confirmed) {
+      goals.removeAt(index);
+      await saveData();
+    }
+  }
 
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, refreshDialog) => AlertDialog(
-          title: Text(tr('মানুষের হক ও সংশোধন', 'Rights and amends')),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                tr(
-                  'যেমন: ক্ষমা চাওয়া, পাওনা ফেরত, ক্ষতিপূরণ বা প্রতিশ্রুতি পূরণ।',
-                  'For example: apologise, return what is owed, make amends, or fulfil a promise.',
-                ),
+  Future<void> updateGoal(int index, int change) async {
+    final goal = Map<String, dynamic>.from(goals[index] as Map);
+    final total = goal['total'] as int? ?? 1;
+    final progress = goal['progress'] as int? ?? 0;
+    final updated = (progress + change).clamp(0, total);
+    goal['progress'] = updated;
+    goals[index] = goal;
+    await saveData();
+
+    if (updated == total && progress < total && mounted) {
+      showMessage(tr(
+        'অভিনন্দন! তুমি লক্ষ্য পূরণ করেছ।',
+        'Congratulations! You reached your goal.',
+      ));
+    }
+  }
+
+  Future<bool> confirmDelete(String title) async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text(title),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: Text(tr('বাতিল', 'Cancel')),
               ),
-              TextField(
-                controller: titleController,
-                maxLines: 3,
-                decoration: InputDecoration(
-                  labelText: tr('করণীয় লিখো', 'Action to take'),
-                ),
-              ),
-              const SizedBox(height: 8),
-              OutlinedButton(
-                onPressed: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: due,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) refreshDialog(() => due = picked);
-                },
-                child: Text(
-                  '${tr('তারিখ', 'Due')}: ${due.year}-${due.month.toString().padLeft(2, '0')}-${due.day.toString().padLeft(2, '0')}',
-                ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: Text(tr('মুছে ফেলো', 'Delete')),
               ),
             ],
           ),
+        ) ??
+        false;
+  }
+
+  Future<void> toggleHabit(int index, bool value) async {
+    final habits = todayHabits;
+    habits['$index'] = value;
+    allHabits[today] = habits;
+    await saveData();
+  }
+
+  Future<void> saveReflection() async {
+    reflections[today] = reflectionController.text;
+    await saveData();
+    if (mounted) {
+      showMessage(tr('আত্মসমালোচনা সংরক্ষিত হয়েছে।', 'Reflection saved.'));
+    }
+  }
+
+  Future<void> addRight({int? index}) async {
+    final old = index == null
+        ? null
+        : Map<String, dynamic>.from(rights[index] as Map);
+    final controller =
+        TextEditingController(text: old?['title'] as String? ?? '');
+    DateTime due = DateTime.tryParse(old?['due'] as String? ?? '') ??
+        DateTime.now().add(const Duration(days: 7));
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, refresh) => AlertDialog(
+          title: Text(tr(
+            old == null ? 'নতুন দায়িত্ব' : 'দায়িত্ব সম্পাদনা',
+            old == null ? 'New action' : 'Edit action',
+          )),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(tr(
+                  'যেমন: ক্ষমা চাওয়া, পাওনা ফেরত বা প্রতিশ্রুতি পূরণ।',
+                  'For example: apologise, return what is owed, or fulfil a promise.',
+                )),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    labelText: tr('করণীয় লিখো', 'Action to take'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.calendar_month),
+                  label: Text('${tr('শেষ তারিখ', 'Due')}: ${dateText(due)}'),
+                  onPressed: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: due,
+                      firstDate: DateTime(2000),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null) refresh(() => due = picked);
+                  },
+                ),
+              ],
+            ),
+          ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
+              onPressed: () => Navigator.pop(ctx, false),
               child: Text(tr('বাতিল', 'Cancel')),
             ),
             FilledButton(
               onPressed: () {
-                if (titleController.text.trim().isNotEmpty) {
-                  Navigator.pop(dialogContext, true);
+                if (controller.text.trim().isNotEmpty) {
+                  Navigator.pop(ctx, true);
                 }
               },
               child: Text(tr('সংরক্ষণ', 'Save')),
@@ -335,60 +537,39 @@ class _TrackerHomeState extends State<TrackerHome> {
     );
 
     if (result == true) {
-      rights.add({
-        'title': titleController.text.trim(),
+      final item = <String, dynamic>{
+        'title': controller.text.trim(),
         'due': due.toIso8601String(),
-        'done': false,
-      });
+        'done': old?['done'] == true,
+      };
+      if (index == null) {
+        rights.add(item);
+      } else {
+        rights[index] = item;
+      }
       await saveData();
     }
-    titleController.dispose();
+    controller.dispose();
   }
 
-  Future<void> updateGoal(int index, int change) async {
-    final goal = Map<String, dynamic>.from(goals[index] as Map);
-    final total = goal['total'] as int;
-    final progress = goal['progress'] as int;
-    goal['progress'] = (progress + change).clamp(0, total);
-    goals[index] = goal;
-    await saveData();
-
-    if ((goal['progress'] as int) == total &&
-        progress < total &&
-        mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            tr('অভিনন্দন! তুমি লক্ষ্য পূরণ করেছ।',
-                'Congratulations! You reached your goal.'),
-          ),
-        ),
-      );
+  Future<void> deleteRight(int index) async {
+    final confirmed = await confirmDelete(
+      tr('এই কাজটি মুছে ফেলবে?', 'Delete this action?'),
+    );
+    if (confirmed) {
+      rights.removeAt(index);
+      await saveData();
     }
   }
 
-  Future<void> toggleHabit(int index, bool value) async {
-    final all = data['habits'] as Map<String, dynamic>;
-    final habits = todayHabits;
-    habits['$index'] = value;
-    all[today] = habits;
-    await saveData();
-  }
-
-  Future<void> saveReflection(String text) async {
-    final reflections = data['reflections'] as Map<String, dynamic>;
-    reflections[today] = text;
-    await saveData();
-  }
-
-  Widget sectionTitle(String text, {Widget? trailing}) {
+  Widget sectionTitle(String title, {Widget? trailing}) {
     return Padding(
       padding: const EdgeInsets.only(top: 18, bottom: 8),
       child: Row(
         children: [
           Expanded(
             child: Text(
-              text,
+              title,
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -401,10 +582,18 @@ class _TrackerHomeState extends State<TrackerHome> {
     );
   }
 
+  Widget dayPickerButton() {
+    return OutlinedButton.icon(
+      onPressed: chooseDay,
+      icon: const Icon(Icons.calendar_month),
+      label: Text(dateText(selectedDay)),
+    );
+  }
+
   Widget reminderCard(String title, String message, IconData icon) {
     return Card(
       child: ListTile(
-        leading: Icon(icon, color: const Color(0xFF145A3A), size: 30),
+        leading: Icon(icon, color: const Color(0xFFC9A45C), size: 30),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Text(message),
       ),
@@ -414,19 +603,19 @@ class _TrackerHomeState extends State<TrackerHome> {
   Widget dashboard() {
     final completed = todayHabits.values.where((v) => v == true).length;
     final total = habitBn.length;
-    final percent = total == 0 ? 0.0 : completed / total;
+    final percent = completed / total;
 
     final overdueGoals = goals.where((item) {
       final g = Map<String, dynamic>.from(item as Map);
-      return (g['progress'] as int) < (g['total'] as int) &&
-          DateTime.parse(g['deadline'] as String).isBefore(
-            DateTime.now().subtract(const Duration(days: 1)),
-          );
+      final deadline = DateTime.tryParse(g['deadline'] as String? ?? '');
+      return (g['progress'] as int? ?? 0) < (g['total'] as int? ?? 1) &&
+          deadline != null &&
+          deadline.isBefore(DateTime.now()) &&
+          dayKey(deadline) != dayKey(DateTime.now());
     }).length;
 
     final openRights = rights.where((item) {
-      final r = Map<String, dynamic>.from(item as Map);
-      return r['done'] != true;
+      return (item as Map)['done'] != true;
     }).length;
 
     return ListView(
@@ -466,26 +655,29 @@ class _TrackerHomeState extends State<TrackerHome> {
               ),
               const SizedBox(height: 8),
               Text(
-                tr('আজকের তারিখ: $today', 'Today: $today'),
+                tr('তারিখ: ${dateText(selectedDay)}',
+                    'Date: ${dateText(selectedDay)}'),
                 style: const TextStyle(color: Colors.white70),
               ),
             ],
           ),
         ),
-        sectionTitle(tr('আজকের অগ্রগতি', 'Today’s progress')),
+        sectionTitle(tr('দিন নির্বাচন', 'Select a day')),
+        dayPickerButton(),
+        sectionTitle(tr('আজকের ইবাদতের অগ্রগতি', 'Worship progress')),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(18),
             child: Row(
               children: [
                 SizedBox(
-                  width: 78,
-                  height: 78,
+                  width: 76,
+                  height: 76,
                   child: CircularProgressIndicator(
                     value: percent,
                     strokeWidth: 8,
-                    backgroundColor: Colors.black12,
-                    color: const Color(0xFF145A3A),
+                    color: const Color(0xFFC9A45C),
+                    backgroundColor: Colors.grey.withValues(alpha: 0.2),
                   ),
                 ),
                 const SizedBox(width: 18),
@@ -500,7 +692,7 @@ class _TrackerHomeState extends State<TrackerHome> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(tr('অভ্যাস সম্পন্ন', 'habits completed')),
+                      Text(tr('অভ্যাস সম্পন্ন', 'Habits completed')),
                       Text('${(percent * 100).round()}%'),
                     ],
                   ),
@@ -512,42 +704,73 @@ class _TrackerHomeState extends State<TrackerHome> {
         if (overdueGoals > 0)
           reminderCard(
             tr('লক্ষ্য পিছিয়ে আছে', 'Goals overdue'),
-            tr('$overdueGoalsটি লক্ষ্য পরীক্ষা করো এবং পরিকল্পনা ঠিক করো।',
-                'Review $overdueGoals overdue goal(s) and adjust your plan.'),
+            tr('$overdueGoalsটি লক্ষ্য পর্যালোচনা করো।',
+                'Review $overdueGoals overdue goal(s).'),
             Icons.warning_amber_rounded,
           ),
         if (openRights > 0)
           reminderCard(
-            tr('অসম্পূর্ণ দায়িত্ব', 'Outstanding responsibilities'),
-            tr('$openRightsটি কাজ এখনও সম্পন্ন হয়নি।',
-                '$openRights action(s) are still incomplete.'),
+            tr('অসম্পূর্ণ দায়িত্ব', 'Outstanding actions'),
+            tr('$openRightsটি কাজ এখনও বাকি।',
+                '$openRights action(s) remain incomplete.'),
             Icons.volunteer_activism,
           ),
-        sectionTitle(tr('আজকের লক্ষ্যসমূহ', 'Your goals')),
+        sectionTitle(
+          tr('লক্ষ্যসমূহ', 'Your goals'),
+          trailing: IconButton(
+            onPressed: () => addGoal(),
+            icon: const Icon(Icons.add_circle),
+          ),
+        ),
         if (goals.isEmpty)
-          Text(tr(
-            'এখনও কোনো লক্ষ্য নেই। + বোতামে চাপ দিয়ে লক্ষ্য যোগ করো।',
-            'No goals yet. Use the + button to add one.',
-          )),
+          Text(tr('এখনও কোনো লক্ষ্য নেই। + চাপ দিয়ে যোগ করো।',
+              'No goals yet. Tap + to add one.')),
         ...goals.asMap().entries.map((entry) {
           final g = Map<String, dynamic>.from(entry.value as Map);
-          final progress = g['progress'] as int;
-          final totalSteps = g['total'] as int;
-          final ratio = totalSteps == 0 ? 0.0 : progress / totalSteps;
+          final progress = g['progress'] as int? ?? 0;
+          final totalSteps = g['total'] as int? ?? 1;
+          final ratio = (progress / totalSteps).clamp(0.0, 1.0);
+          final deadline =
+              DateTime.tryParse(g['deadline'] as String? ?? '');
           return Card(
             child: Padding(
               padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    g['title'] as String,
-                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          g['title'] as String? ?? '',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        onSelected: (v) {
+                          if (v == 'edit') addGoal(index: entry.key);
+                          if (v == 'delete') deleteGoal(entry.key);
+                        },
+                        itemBuilder: (_) => [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: Text(tr('সম্পাদনা', 'Edit')),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Text(tr('মুছে ফেলো', 'Delete')),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   LinearProgressIndicator(value: ratio),
                   const SizedBox(height: 8),
-                  Text('$progress / $totalSteps  •  ${(ratio * 100).round()}%'),
+                  Text('$progress / $totalSteps • ${(ratio * 100).round()}%'),
                   Row(
                     children: [
                       IconButton(
@@ -559,12 +782,11 @@ class _TrackerHomeState extends State<TrackerHome> {
                         icon: const Icon(Icons.add_circle_outline),
                       ),
                       const Spacer(),
-                      Text(
-                        '${DateTime.parse(g['deadline'] as String).year}-'
-                        '${DateTime.parse(g['deadline'] as String).month.toString().padLeft(2, '0')}-'
-                        '${DateTime.parse(g['deadline'] as String).day.toString().padLeft(2, '0')}',
-                        style: const TextStyle(fontSize: 12),
-                      ),
+                      if (deadline != null)
+                        Text(
+                          dateText(deadline),
+                          style: const TextStyle(fontSize: 12),
+                        ),
                     ],
                   ),
                 ],
@@ -578,19 +800,25 @@ class _TrackerHomeState extends State<TrackerHome> {
 
   Widget habitScreen() {
     final checked = todayHabits;
+    final completed = checked.values.where((v) => v == true).length;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          tr('আজকের ইবাদত ও অভ্যাস', 'Today’s worship and habits'),
+          tr('ইবাদত ও দৈনিক অভ্যাস', 'Worship and daily habits'),
           style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 8),
+        dayPickerButton(),
         Text(tr(
-          'নিজের অগ্রগতি সৎভাবে চিহ্নিত করো। এটি আত্মউন্নতির জন্য, অন্যকে বিচার করার জন্য নয়।',
-          'Track your progress honestly. This is for self-improvement, not judging others.',
+          'নিজের অগ্রগতি সৎভাবে চিহ্নিত করো। এটি আত্মউন্নতির জন্য।',
+          'Track your progress honestly for self-improvement.',
         )),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        LinearProgressIndicator(value: completed / habitBn.length),
+        const SizedBox(height: 6),
+        Text('$completed / ${habitBn.length}'),
+        const SizedBox(height: 8),
         ...List.generate(habitBn.length, (i) {
           return Card(
             child: CheckboxListTile(
@@ -616,37 +844,65 @@ class _TrackerHomeState extends State<TrackerHome> {
         ),
         const SizedBox(height: 8),
         Text(tr(
-          'ব্যক্তিগতভাবে করণীয় লিখে রাখো। প্রয়োজন অনুযায়ী ক্ষমা চাওয়া, পাওনা ফেরত বা ক্ষতিপূরণ দেওয়ার কাজ সম্পন্ন হলে চিহ্নিত করো।',
-          'Keep a private action list. Mark actions complete when you have apologised, returned what is owed, or made appropriate amends.',
+          'ক্ষমা চাওয়া, পাওনা ফেরত, ক্ষতিপূরণ বা প্রতিশ্রুতি পূরণের মতো কাজ ব্যক্তিগতভাবে লিখে রাখো।',
+          'Privately track actions such as apologising, returning what is owed, making amends, or fulfilling promises.',
         )),
         const SizedBox(height: 12),
         if (rights.isEmpty)
-          Text(tr('এখন কোনো কাজ যোগ করা হয়নি।', 'No actions added yet.')),
+          Text(tr('এখন কোনো কাজ যোগ করা হয়নি।',
+              'No actions added yet.')),
         ...rights.asMap().entries.map((entry) {
           final r = Map<String, dynamic>.from(entry.value as Map);
-          final due = DateTime.parse(r['due'] as String);
+          final due = DateTime.tryParse(r['due'] as String? ?? '') ??
+              DateTime.now();
           final done = r['done'] == true;
-          final late = !done && due.isBefore(DateTime.now());
+          final late = !done &&
+              due.isBefore(DateTime.now()) &&
+              dayKey(due) != dayKey(DateTime.now());
+
           return Card(
-            child: CheckboxListTile(
-              value: done,
-              onChanged: (value) async {
-                r['done'] = value ?? false;
-                rights[entry.key] = r;
-                await saveData();
-              },
-              title: Text(r['title'] as String),
+            child: ListTile(
+              leading: Checkbox(
+                value: done,
+                onChanged: (value) async {
+                  r['done'] = value ?? false;
+                  rights[entry.key] = r;
+                  await saveData();
+                },
+              ),
+              title: Text(
+                r['title'] as String? ?? '',
+                style: TextStyle(
+                  decoration: done ? TextDecoration.lineThrough : null,
+                ),
+              ),
               subtitle: Text(
-                '${tr('শেষ তারিখ', 'Due')}: ${due.year}-${due.month.toString().padLeft(2, '0')}-${due.day.toString().padLeft(2, '0')}'
+                '${tr('শেষ তারিখ', 'Due')}: ${dateText(due)}'
                 '${late ? tr(' • সময় পেরিয়েছে', ' • Overdue') : ''}',
                 style: TextStyle(color: late ? Colors.red : null),
+              ),
+              trailing: PopupMenuButton<String>(
+                onSelected: (v) {
+                  if (v == 'edit') addRight(index: entry.key);
+                  if (v == 'delete') deleteRight(entry.key);
+                },
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    value: 'edit',
+                    child: Text(tr('সম্পাদনা', 'Edit')),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Text(tr('মুছে ফেলো', 'Delete')),
+                  ),
+                ],
               ),
             ),
           );
         }),
         const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: addRight,
+          onPressed: () => addRight(),
           icon: const Icon(Icons.add),
           label: Text(tr('নতুন কাজ যোগ করো', 'Add an action')),
         ),
@@ -655,11 +911,6 @@ class _TrackerHomeState extends State<TrackerHome> {
   }
 
   Widget reflectionScreen() {
-    final reflections = data['reflections'] as Map<String, dynamic>;
-    final controller = TextEditingController(
-      text: reflections[today] as String? ?? '',
-    );
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -667,14 +918,15 @@ class _TrackerHomeState extends State<TrackerHome> {
           tr('দিনের আত্মসমালোচনা', 'Daily reflection'),
           style: const TextStyle(fontSize: 21, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 12),
+        dayPickerButton(),
+        const SizedBox(height: 8),
         Text(tr(
           'আজ কী ভালো করেছি? কী সংশোধন করা দরকার? কারও হক বাকি আছে? আগামীকাল কোন কাজটি আগে করব?',
           'What went well today? What needs correction? Is anyone’s right outstanding? What should I prioritise tomorrow?',
         )),
         const SizedBox(height: 16),
         TextField(
-          controller: controller,
+          controller: reflectionController,
           minLines: 8,
           maxLines: 14,
           decoration: InputDecoration(
@@ -687,17 +939,38 @@ class _TrackerHomeState extends State<TrackerHome> {
         ),
         const SizedBox(height: 12),
         FilledButton.icon(
-          onPressed: () async {
-            await saveReflection(controller.text);
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(tr('সংরক্ষণ হয়েছে', 'Saved'))),
-              );
-            }
-          },
+          onPressed: saveReflection,
           icon: const Icon(Icons.save),
-          label: Text(tr('আজকের হিসাব সংরক্ষণ', 'Save reflection')),
+          label: Text(tr('এই দিনের নোট সংরক্ষণ', 'Save this day’s reflection')),
         ),
+        sectionTitle(tr('আগের দিনের নোট', 'Previous reflections')),
+        ...reflections.entries.toList()
+          ..sort((a, b) => b.key.compareTo(a.key))
+          ..take(30).map((entry) => Card(
+            child: ListTile(
+              leading: const Icon(Icons.history),
+              title: Text(entry.key),
+              subtitle: Text(
+                entry.value.toString().isEmpty
+                    ? tr('খালি নোট', 'Empty note')
+                    : entry.value.toString(),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              onTap: () {
+                final parts = entry.key.split('-');
+                if (parts.length == 3) {
+                  final date = DateTime.tryParse(entry.key);
+                  if (date != null) {
+                    setState(() {
+                      selectedDay = date;
+                      reflectionController.text = currentReflection;
+                    });
+                  }
+                }
+              },
+            ),
+          )),
       ],
     );
   }
@@ -722,6 +995,13 @@ class _TrackerHomeState extends State<TrackerHome> {
       appBar: AppBar(
         title: Text(titles[tab]),
         actions: [
+          IconButton(
+            tooltip: tr('থিম পরিবর্তন', 'Toggle theme'),
+            onPressed: () => widget.onThemeChanged(!widget.darkMode),
+            icon: Icon(
+              widget.darkMode ? Icons.light_mode : Icons.dark_mode,
+            ),
+          ),
           TextButton(
             onPressed: () => widget.onLanguageChanged(!en),
             child: Text(
@@ -736,10 +1016,49 @@ class _TrackerHomeState extends State<TrackerHome> {
       ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
-          : pages[tab],
-      floatingActionButton: tab == 0
+          : loadError != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.warning_amber, size: 48),
+                        const SizedBox(height: 12),
+                        Text(tr(
+                          'আগের তথ্য পড়তে সমস্যা হয়েছে। অ্যাপ চালু রাখা হয়েছে।',
+                          'There was a problem reading saved data. The app is still available.',
+                        )),
+                        const SizedBox(height: 12),
+                        FilledButton(
+                          onPressed: () {
+                            setState(() {
+                              loadError = null;
+                              loading = true;
+                            });
+                            loadData();
+                          },
+                          child: Text(tr('আবার চেষ্টা', 'Retry')),
+                        ),
+                        TextButton(
+                          onPressed: () => setState(() {
+                            loadError = null;
+                            loading = false;
+                          }),
+                          child: Text(tr('সংরক্ষিত তথ্য বাদ দিয়ে চালু করো',
+                              'Continue without loading saved data')),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : IndexedStack(
+                  index: tab,
+                  children: pages,
+                ),
+      floatingActionButton: !loading && loadError == null && tab == 0
           ? FloatingActionButton(
-              onPressed: addGoal,
+              onPressed: () => addGoal(),
               backgroundColor: const Color(0xFFC9A45C),
               foregroundColor: Colors.black,
               child: const Icon(Icons.add),
