@@ -49,10 +49,12 @@ class _PathcholaAppState extends State<PathcholaApp> {
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _loadError = null;
-    });
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+    }
 
     try {
       final results = await Future.wait([
@@ -103,7 +105,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
     final dialogContext = _navigatorKey.currentContext;
 
     if (dialogContext == null) {
-      debugPrint('PATHCHOLA: Navigator is not ready for daily popup.');
+      debugPrint('PATHCHOLA: Navigator is not ready.');
       return;
     }
 
@@ -259,14 +261,24 @@ class _PathcholaAppState extends State<PathcholaApp> {
     }
   }
 
+  // আজকের আমল স্ক্রিন সরাসরি Navigator দিয়ে খোলা হয়।
   void _openTodayAmal() {
-    Navigator.of(context).push(
+    final navigator = _navigatorKey.currentState;
+
+    if (navigator == null) {
+      debugPrint('PATHCHOLA: Navigator is not ready for Today Amal.');
+      return;
+    }
+
+    navigator.push(
       MaterialPageRoute<void>(
-        builder: (_) => TodayAmalScreen(
-          data: _data,
-          english: _english,
-          onDataChanged: _changeData,
-        ),
+        builder: (routeContext) {
+          return TodayAmalScreen(
+            data: Map<String, dynamic>.from(_data),
+            english: _english,
+            onDataChanged: _changeData,
+          );
+        },
       ),
     );
   }
