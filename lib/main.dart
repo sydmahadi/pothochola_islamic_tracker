@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/home_screen.dart';
@@ -36,6 +37,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
   bool _dark = false;
   bool _loading = true;
   bool _dailyDialogShown = false;
+  bool _handlingBack = false;
 
   String? _loadError;
   int _selectedIndex = 0;
@@ -49,12 +51,10 @@ class _PathcholaAppState extends State<PathcholaApp> {
   }
 
   Future<void> _load() async {
-    if (mounted) {
-      setState(() {
-        _loading = true;
-        _loadError = null;
-      });
-    }
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
 
     try {
       final results = await Future.wait([
@@ -102,15 +102,11 @@ class _PathcholaAppState extends State<PathcholaApp> {
 
     if (!mounted || _dailyDialogShown) return;
 
-    final dialogContext = _navigatorKey.currentContext;
-
-    if (dialogContext == null) {
-      debugPrint('PATHCHOLA: Navigator is not ready.');
-      return;
-    }
+    final context = _navigatorKey.currentContext;
+    if (context == null) return;
 
     _dailyDialogShown = true;
-    await _showDailyPopup(dialogContext);
+    await _showDailyPopup(context);
   }
 
   Future<void> _showDailyPopup(BuildContext dialogContext) async {
@@ -126,9 +122,6 @@ class _PathcholaAppState extends State<PathcholaApp> {
         final isQuran = item.isQuran;
 
         return AlertDialog(
-          backgroundColor: _dark
-              ? const Color(0xFF20352B)
-              : const Color(0xFFFFFEF8),
           icon: Icon(
             isQuran
                 ? Icons.menu_book_rounded
@@ -145,7 +138,6 @@ class _PathcholaAppState extends State<PathcholaApp> {
                     ? 'Hadith of the day'
                     : 'আজকের হাদিস'),
             textAlign: TextAlign.center,
-            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           content: SingleChildScrollView(
             child: Column(
@@ -167,7 +159,10 @@ class _PathcholaAppState extends State<PathcholaApp> {
                 Text(
                   _english ? item.english : item.bangla,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 17, height: 1.7),
+                  style: const TextStyle(
+                    fontSize: 17,
+                    height: 1.7,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -184,10 +179,6 @@ class _PathcholaAppState extends State<PathcholaApp> {
           actionsAlignment: MainAxisAlignment.center,
           actions: [
             FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF39775A),
-                foregroundColor: Colors.white,
-              ),
               onPressed: () {
                 Navigator.of(context, rootNavigator: true).pop();
               },
@@ -209,8 +200,9 @@ class _PathcholaAppState extends State<PathcholaApp> {
 
     try {
       await _storage.saveData(updated);
-    } catch (e) {
+    } catch (e, stackTrace) {
       debugPrint('PATHCHOLA SAVE ERROR: $e');
+      debugPrintStack(stackTrace: stackTrace);
 
       if (!mounted) return;
 
@@ -242,7 +234,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
     try {
       await _storage.saveEnglish(next);
     } catch (e) {
-      debugPrint('Language setting error: $e');
+      debugPrint('PATHCHOLA LANGUAGE ERROR: $e');
     }
   }
 
@@ -257,30 +249,83 @@ class _PathcholaAppState extends State<PathcholaApp> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_themeKey, next);
     } catch (e) {
-      debugPrint('Theme setting error: $e');
+      debugPrint('PATHCHOLA THEME ERROR: $e');
     }
   }
 
-  // আজকের আমল স্ক্রিন সরাসরি Navigator দিয়ে খোলা হয়।
   void _openTodayAmal() {
     final navigator = _navigatorKey.currentState;
 
     if (navigator == null) {
-      debugPrint('PATHCHOLA: Navigator is not ready for Today Amal.');
+      debugPrint('PATHCHOLA: Navigator is not ready.');
       return;
     }
 
     navigator.push(
       MaterialPageRoute<void>(
-        builder: (routeContext) {
-          return TodayAmalScreen(
-            data: Map<String, dynamic>.from(_data),
-            english: _english,
-            onDataChanged: _changeData,
-          );
-        },
+        builder: (_) => TodayAmalScreen(
+          data: Map<String, dynamic>.from(_data),
+          english: _english,
+          onDataChanged: _changeData,
+        ),
       ),
     );
+  }
+
+  Future<void> _handleBack() async {
+    if (_handlingBack || !mounted) return;
+
+    _handlingBack = true;
+
+    try {
+      // অন্য tab-এ থাকলে Home-এ ফিরবে।
+      if (_selectedIndex != 0) {
+        setState(() {
+          _selectedIndex = 0;
+        });
+        return;
+      }
+
+      final dialogContext = _navigatorKey.currentContext;
+      if (dialogContext == null || !mounted) return;
+
+      final shouldExit = await showDialog<bool>(
+        context: dialogContext,
+        useRootNavigator: true,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: Text(
+              _english ? 'Exit Pathchola?' : 'অ্যাপ বন্ধ করবেন?',
+            ),
+            content: Text(
+              _english
+                  ? 'Do you want to close the app?'
+                  : 'আপনি কি পথচলা অ্যাপ থেকে বের হতে চান?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(false);
+                },
+                child: Text(_english ? 'Cancel' : 'না'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(true);
+                },
+                child: Text(_english ? 'Exit' : 'হ্যাঁ, বন্ধ করুন'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (shouldExit == true && mounted) {
+        await SystemNavigator.pop();
+      }
+    } finally {
+      _handlingBack = false;
+    }
   }
 
   @override
@@ -334,12 +379,6 @@ class _PathcholaAppState extends State<PathcholaApp> {
           backgroundColor: Color(0xFFFFFEF8),
           indicatorColor: Color(0xFFDDEBDD),
           elevation: 0,
-        ),
-        filledButtonTheme: FilledButtonThemeData(
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF39775A),
-            foregroundColor: Colors.white,
-          ),
         ),
       ),
       darkTheme: ThemeData(
@@ -407,8 +446,8 @@ class _PathcholaAppState extends State<PathcholaApp> {
                 const SizedBox(height: 16),
                 Text(
                   _english
-                      ? 'Previous saved data could not be read.'
-                      : 'আগের সংরক্ষিত ডেটা পড়া যায়নি।',
+                      ? 'Saved data could not be loaded.'
+                      : 'সংরক্ষিত ডেটা লোড করা যায়নি।',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 19,
@@ -424,14 +463,9 @@ class _PathcholaAppState extends State<PathcholaApp> {
                 FilledButton.icon(
                   onPressed: _load,
                   icon: const Icon(Icons.refresh),
-                  label: Text(_english ? 'Try again' : 'আবার চেষ্টা করুন'),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  _english
-                      ? 'Your existing data has not been intentionally replaced.'
-                      : 'আপনার আগের ডেটা নতুন খালি ডেটা দিয়ে প্রতিস্থাপন করা হয়নি।',
-                  textAlign: TextAlign.center,
+                  label: Text(
+                    _english ? 'Try again' : 'আবার চেষ্টা করুন',
+                  ),
                 ),
               ],
             ),
@@ -495,69 +529,76 @@ class _PathcholaAppState extends State<PathcholaApp> {
             'রিপোর্ট',
           ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          titles[_selectedIndex],
-          style: const TextStyle(fontWeight: FontWeight.bold),
+    return PopScope<Object?>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBack();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            titles[_selectedIndex],
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          actions: [
+            IconButton(
+              tooltip: _english ? 'Change language' : 'ভাষা পরিবর্তন',
+              onPressed: _toggleLanguage,
+              icon: const Icon(Icons.translate),
+            ),
+            IconButton(
+              tooltip: _english ? 'Change theme' : 'থিম পরিবর্তন',
+              onPressed: _toggleTheme,
+              icon: Icon(_dark ? Icons.light_mode : Icons.dark_mode),
+            ),
+            const SizedBox(width: 5),
+          ],
         ),
-        actions: [
-          IconButton(
-            tooltip: _english ? 'Change language' : 'ভাষা পরিবর্তন',
-            onPressed: _toggleLanguage,
-            icon: const Icon(Icons.translate),
-          ),
-          IconButton(
-            tooltip: _english ? 'Change theme' : 'থিম পরিবর্তন',
-            onPressed: _toggleTheme,
-            icon: Icon(_dark ? Icons.light_mode : Icons.dark_mode),
-          ),
-          const SizedBox(width: 5),
-        ],
-      ),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: screens,
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.home_outlined),
-            selectedIcon: const Icon(Icons.home),
-            label: _english ? 'Home' : 'হোম',
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.flag_outlined),
-            selectedIcon: const Icon(Icons.flag),
-            label: _english ? 'Goals' : 'লক্ষ্য',
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.mosque_outlined),
-            selectedIcon: const Icon(Icons.mosque),
-            label: _english ? 'Prohori' : 'প্রহরী',
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.favorite_border),
-            selectedIcon: const Icon(Icons.favorite),
-            label: _english ? 'Rights' : 'দায়িত্ব',
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.menu_book_outlined),
-            selectedIcon: const Icon(Icons.menu_book),
-            label: _english ? 'Reflect' : 'ভাবনা',
-          ),
-          NavigationDestination(
-            icon: const Icon(Icons.bar_chart_outlined),
-            selectedIcon: const Icon(Icons.bar_chart),
-            label: _english ? 'Report' : 'রিপোর্ট',
-          ),
-        ],
+        body: IndexedStack(
+          index: _selectedIndex,
+          children: screens,
+        ),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: _selectedIndex,
+          onDestinationSelected: (index) {
+            setState(() {
+              _selectedIndex = index;
+            });
+          },
+          destinations: [
+            NavigationDestination(
+              icon: const Icon(Icons.home_outlined),
+              selectedIcon: const Icon(Icons.home),
+              label: _english ? 'Home' : 'হোম',
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.flag_outlined),
+              selectedIcon: const Icon(Icons.flag),
+              label: _english ? 'Goals' : 'লক্ষ্য',
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.mosque_outlined),
+              selectedIcon: const Icon(Icons.mosque),
+              label: _english ? 'Prohori' : 'প্রহরী',
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.favorite_border),
+              selectedIcon: const Icon(Icons.favorite),
+              label: _english ? 'Rights' : 'দায়িত্ব',
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.menu_book_outlined),
+              selectedIcon: const Icon(Icons.menu_book),
+              label: _english ? 'Reflect' : 'ভাবনা',
+            ),
+            NavigationDestination(
+              icon: const Icon(Icons.bar_chart_outlined),
+              selectedIcon: const Icon(Icons.bar_chart),
+              label: _english ? 'Report' : 'রিপোর্ট',
+            ),
+          ],
+        ),
       ),
     );
   }
