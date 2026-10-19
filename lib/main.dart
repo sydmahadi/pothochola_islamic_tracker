@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/home_screen.dart';
 import 'screens/goals_screen.dart';
@@ -25,13 +26,21 @@ class PathcholaApp extends StatefulWidget {
 class _PathcholaAppState extends State<PathcholaApp> {
   final StorageService _storage = StorageService();
 
+  final GlobalKey<NavigatorState> _navigatorKey =
+      GlobalKey<NavigatorState>();
+
   Map<String, dynamic> _data = {};
+
   bool _english = false;
   bool _dark = false;
   bool _loading = true;
   bool _dailyDialogShown = false;
+
   String? _loadError;
   int _selectedIndex = 0;
+
+  // নতুন key: আগের Dark Mode সেটিংকে এড়িয়ে প্রথমবার Light Mode।
+  static const String _themeKey = 'pathchola_theme_dark_v2';
 
   @override
   void initState() {
@@ -49,8 +58,9 @@ class _PathcholaAppState extends State<PathcholaApp> {
       final results = await Future.wait([
         _storage.loadData(),
         _storage.loadEnglish(),
-        _storage.loadDark(),
       ]);
+
+      final prefs = await SharedPreferences.getInstance();
 
       if (!mounted) return;
 
@@ -58,24 +68,18 @@ class _PathcholaAppState extends State<PathcholaApp> {
         _data = Map<String, dynamic>.from(
           results[0] as Map<String, dynamic>,
         );
+
         _english = results[1] as bool;
-        _dark = results[2] as bool;
+
+        // নতুন key-তে সেটিং না থাকলে Light Mode।
+        _dark = prefs.getBool(_themeKey) ?? false;
+
         _loading = false;
       });
 
-      // Wait until the main screen has been rendered.
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted || _dailyDialogShown || _loadError != null) return;
-
-        _dailyDialogShown = true;
-
-        await Future<void>.delayed(
-          const Duration(milliseconds: 500),
-        );
-
-        if (!mounted) return;
-
-        await _showDailyPopup();
+      // MaterialApp এবং Navigator তৈরি হওয়ার পরে পপআপ দেখাও।
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scheduleDailyPopup();
       });
     } catch (e, stackTrace) {
       debugPrint('PATHCHOLA LOAD ERROR: $e');
@@ -90,7 +94,126 @@ class _PathcholaAppState extends State<PathcholaApp> {
     }
   }
 
-  Future<void> _changeData(Map<String, dynamic> newData) async {
+  Future<void> _scheduleDailyPopup() async {
+    if (!mounted || _dailyDialogShown || _loadError != null) {
+      return;
+    }
+
+    // Navigator প্রস্তুত হওয়ার জন্য অল্প সময় অপেক্ষা।
+    await Future<void>.delayed(
+      const Duration(milliseconds: 500),
+    );
+
+    if (!mounted || _dailyDialogShown) return;
+
+    final dialogContext = _navigatorKey.currentContext;
+
+    if (dialogContext == null) {
+      debugPrint('PATHCHOLA: Navigator is not ready for daily popup.');
+      return;
+    }
+
+    _dailyDialogShown = true;
+
+    await _showDailyPopup(dialogContext);
+  }
+
+  Future<void> _showDailyPopup(BuildContext dialogContext) async {
+    if (!mounted) return;
+
+    final item = DailyContentService.forToday();
+
+    await showDialog<void>(
+      context: dialogContext,
+      useRootNavigator: true,
+      barrierDismissible: true,
+      builder: (context) {
+        final isQuran = item.isQuran;
+
+        return AlertDialog(
+          backgroundColor: _dark
+              ? const Color(0xFF20352B)
+              : const Color(0xFFFFFEF8),
+          icon: Icon(
+            isQuran
+                ? Icons.menu_book_rounded
+                : Icons.auto_stories_rounded,
+            size: 38,
+            color: const Color(0xFFB69A55),
+          ),
+          title: Text(
+            isQuran
+                ? (_english
+                    ? 'Verse of the day'
+                    : 'আজকের কুরআনের আয়াত')
+                : (_english
+                    ? 'Hadith of the day'
+                    : 'আজকের হাদিস'),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Text(
+                    item.arabic,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 25,
+                      height: 1.9,
+                      color: Color(0xFFB69A55),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  _english ? item.english : item.bangla,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    height: 1.7,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  item.reference,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF39775A),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF39775A),
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.of(context, rootNavigator: true).pop();
+              },
+              child: Text(
+                _english ? 'Continue' : 'শুরু করি',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _changeData(
+    Map<String, dynamic> newData,
+  ) async {
     final previous = _data;
 
     setState(() {
@@ -142,145 +265,101 @@ class _PathcholaAppState extends State<PathcholaApp> {
     });
 
     try {
-      await _storage.saveDark(next);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_themeKey, next);
     } catch (e) {
       debugPrint('Theme setting error: $e');
     }
   }
 
-  Future<void> _showDailyPopup() async {
-    if (!mounted || _loading || _loadError != null) return;
-
-    final item = DailyContentService.forToday();
-
-    await showDialog<void>(
-      context: context,
-      useRootNavigator: true,
-      barrierDismissible: true,
-      builder: (dialogContext) {
-        return AlertDialog(
-          icon: Icon(
-            item.isQuran
-                ? Icons.menu_book_rounded
-                : Icons.auto_stories_rounded,
-            size: 36,
-            color: const Color(0xFFC9A45C),
-          ),
-          title: Text(
-            item.isQuran
-                ? (_english
-                    ? 'Verse of the day'
-                    : 'আজকের কুরআনের আয়াত')
-                : (_english
-                    ? 'Hadith of the day'
-                    : 'আজকের হাদিস'),
-            textAlign: TextAlign.center,
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Directionality(
-                  textDirection: TextDirection.rtl,
-                  child: Text(
-                    item.arabic,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 25,
-                      height: 1.9,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  _english ? item.english : item.bangla,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    height: 1.6,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  item.reference,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Theme.of(dialogContext)
-                        .colorScheme
-                        .secondary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actionsAlignment: MainAxisAlignment.center,
-          actions: [
-            FilledButton(
-              onPressed: () {
-                Navigator.of(
-                  dialogContext,
-                  rootNavigator: true,
-                ).pop();
-              },
-              child: Text(
-                _english ? 'Continue' : 'শুরু করি',
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: const Color(0xFF087F5B),
-      brightness: _dark ? Brightness.dark : Brightness.light,
+    final lightScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF39775A),
+      brightness: Brightness.light,
+    ).copyWith(
+      primary: const Color(0xFF39775A),
+      secondary: const Color(0xFFB69A55),
+      surface: const Color(0xFFFFFEF8),
+    );
+
+    final darkScheme = ColorScheme.fromSeed(
+      seedColor: const Color(0xFF39775A),
+      brightness: Brightness.dark,
+    ).copyWith(
+      primary: const Color(0xFF78B89A),
+      secondary: const Color(0xFFD6BE7D),
+      surface: const Color(0xFF20352B),
     );
 
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       debugShowCheckedModeBanner: false,
       title: 'পথচলা',
       themeMode: _dark ? ThemeMode.dark : ThemeMode.light,
+
+      // Calm Islamic Light Theme
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: scheme.copyWith(
-          primary: const Color(0xFF087F5B),
-          secondary: const Color(0xFFC9A45C),
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF4F7F5),
-        cardTheme: CardThemeData(
-          elevation: 1,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(18),
-          ),
-        ),
+        colorScheme: lightScheme,
+        scaffoldBackgroundColor: const Color(0xFFF5F6EF),
         appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFFF5F6EF),
+          foregroundColor: Color(0xFF254B39),
           centerTitle: false,
           elevation: 0,
         ),
+        cardTheme: CardThemeData(
+          color: const Color(0xFFFFFEF8),
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(
+              color: Color(0xFFE4E7D9),
+              width: 0.7,
+            ),
+          ),
+        ),
+        navigationBarTheme: const NavigationBarThemeData(
+          backgroundColor: Color(0xFFFFFEF8),
+          indicatorColor: Color(0xFFDDEBDD),
+          elevation: 0,
+        ),
+        filledButtonTheme: FilledButtonThemeData(
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFF39775A),
+            foregroundColor: Colors.white,
+          ),
+        ),
       ),
+
+      // Calm Islamic Dark Theme
       darkTheme: ThemeData(
         useMaterial3: true,
-        colorScheme: scheme,
-        scaffoldBackgroundColor: const Color(0xFF101A17),
+        colorScheme: darkScheme,
+        scaffoldBackgroundColor: const Color(0xFF14221B),
+        appBarTheme: const AppBarTheme(
+          backgroundColor: Color(0xFF14221B),
+          foregroundColor: Color(0xFFE5EBDD),
+          centerTitle: false,
+          elevation: 0,
+        ),
         cardTheme: CardThemeData(
+          color: const Color(0xFF20352B),
           elevation: 0,
           margin: EdgeInsets.zero,
-          color: const Color(0xFF1B2924),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
         ),
-        appBarTheme: const AppBarTheme(
-          centerTitle: false,
+        navigationBarTheme: const NavigationBarThemeData(
+          backgroundColor: Color(0xFF20352B),
+          indicatorColor: Color(0xFF365642),
           elevation: 0,
         ),
       ),
+
       home: _buildHome(),
     );
   }
