@@ -8,6 +8,7 @@ import 'screens/worship_screen.dart';
 import 'screens/rights_screen.dart';
 import 'screens/reflection_screen.dart';
 import 'screens/report_screen.dart';
+import 'screens/today_amal_screen.dart';
 import 'services/storage_service.dart';
 import 'services/daily_content_service.dart';
 
@@ -39,7 +40,6 @@ class _PathcholaAppState extends State<PathcholaApp> {
   String? _loadError;
   int _selectedIndex = 0;
 
-  // নতুন key: আগের Dark Mode সেটিংকে এড়িয়ে প্রথমবার Light Mode।
   static const String _themeKey = 'pathchola_theme_dark_v2';
 
   @override
@@ -68,16 +68,11 @@ class _PathcholaAppState extends State<PathcholaApp> {
         _data = Map<String, dynamic>.from(
           results[0] as Map<String, dynamic>,
         );
-
         _english = results[1] as bool;
-
-        // নতুন key-তে সেটিং না থাকলে Light Mode।
         _dark = prefs.getBool(_themeKey) ?? false;
-
         _loading = false;
       });
 
-      // MaterialApp এবং Navigator তৈরি হওয়ার পরে পপআপ দেখাও।
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _scheduleDailyPopup();
       });
@@ -99,7 +94,6 @@ class _PathcholaAppState extends State<PathcholaApp> {
       return;
     }
 
-    // Navigator প্রস্তুত হওয়ার জন্য অল্প সময় অপেক্ষা।
     await Future<void>.delayed(
       const Duration(milliseconds: 500),
     );
@@ -114,7 +108,6 @@ class _PathcholaAppState extends State<PathcholaApp> {
     }
 
     _dailyDialogShown = true;
-
     await _showDailyPopup(dialogContext);
   }
 
@@ -150,9 +143,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
                     ? 'Hadith of the day'
                     : 'আজকের হাদিস'),
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-            ),
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           content: SingleChildScrollView(
             child: Column(
@@ -174,10 +165,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
                 Text(
                   _english ? item.english : item.bangla,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    height: 1.7,
-                  ),
+                  style: const TextStyle(fontSize: 17, height: 1.7),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -201,9 +189,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
               onPressed: () {
                 Navigator.of(context, rootNavigator: true).pop();
               },
-              child: Text(
-                _english ? 'Continue' : 'শুরু করি',
-              ),
+              child: Text(_english ? 'Continue' : 'শুরু করি'),
             ),
           ],
         );
@@ -211,17 +197,16 @@ class _PathcholaAppState extends State<PathcholaApp> {
     );
   }
 
-  Future<void> _changeData(
-    Map<String, dynamic> newData,
-  ) async {
+  Future<void> _changeData(Map<String, dynamic> newData) async {
     final previous = _data;
+    final updated = Map<String, dynamic>.from(newData);
 
     setState(() {
-      _data = newData;
+      _data = updated;
     });
 
     try {
-      await _storage.saveData(newData);
+      await _storage.saveData(updated);
     } catch (e) {
       debugPrint('PATHCHOLA SAVE ERROR: $e');
 
@@ -240,6 +225,8 @@ class _PathcholaAppState extends State<PathcholaApp> {
           ),
         ),
       );
+
+      rethrow;
     }
   }
 
@@ -272,6 +259,18 @@ class _PathcholaAppState extends State<PathcholaApp> {
     }
   }
 
+  void _openTodayAmal() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => TodayAmalScreen(
+          data: _data,
+          english: _english,
+          onDataChanged: _changeData,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final lightScheme = ColorScheme.fromSeed(
@@ -297,8 +296,6 @@ class _PathcholaAppState extends State<PathcholaApp> {
       debugShowCheckedModeBanner: false,
       title: 'পথচলা',
       themeMode: _dark ? ThemeMode.dark : ThemeMode.light,
-
-      // Calm Islamic Light Theme
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: lightScheme,
@@ -333,8 +330,6 @@ class _PathcholaAppState extends State<PathcholaApp> {
           ),
         ),
       ),
-
-      // Calm Islamic Dark Theme
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: darkScheme,
@@ -359,7 +354,6 @@ class _PathcholaAppState extends State<PathcholaApp> {
           elevation: 0,
         ),
       ),
-
       home: _buildHome(),
     );
   }
@@ -386,9 +380,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
 
     if (_loadError != null) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('পথচলা'),
-        ),
+        appBar: AppBar(title: const Text('পথচলা')),
         body: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -420,9 +412,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
                 FilledButton.icon(
                   onPressed: _load,
                   icon: const Icon(Icons.refresh),
-                  label: Text(
-                    _english ? 'Try again' : 'আবার চেষ্টা করুন',
-                  ),
+                  label: Text(_english ? 'Try again' : 'আবার চেষ্টা করুন'),
                 ),
                 const SizedBox(height: 12),
                 Text(
@@ -444,6 +434,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
         english: _english,
         onGoals: () => setState(() => _selectedIndex = 1),
         onWorship: () => setState(() => _selectedIndex = 2),
+        onTodayAmal: _openTodayAmal,
         onRights: () => setState(() => _selectedIndex = 3),
         onReflection: () => setState(() => _selectedIndex = 4),
       ),
@@ -478,7 +469,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
         ? [
             'Home',
             'Goals',
-            'Amal',
+            'Prohori',
             'Rights',
             'Reflection',
             'Report',
@@ -486,7 +477,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
         : [
             'হোম',
             'লক্ষ্য',
-            'আমল',
+            'প্রহরী',
             'দায়িত্ব',
             'আত্মসমালোচনা',
             'রিপোর্ট',
@@ -496,26 +487,18 @@ class _PathcholaAppState extends State<PathcholaApp> {
       appBar: AppBar(
         title: Text(
           titles[_selectedIndex],
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
           IconButton(
-            tooltip: _english
-                ? 'Change language'
-                : 'ভাষা পরিবর্তন',
+            tooltip: _english ? 'Change language' : 'ভাষা পরিবর্তন',
             onPressed: _toggleLanguage,
             icon: const Icon(Icons.translate),
           ),
           IconButton(
-            tooltip: _english
-                ? 'Change theme'
-                : 'থিম পরিবর্তন',
+            tooltip: _english ? 'Change theme' : 'থিম পরিবর্তন',
             onPressed: _toggleTheme,
-            icon: Icon(
-              _dark ? Icons.light_mode : Icons.dark_mode,
-            ),
+            icon: Icon(_dark ? Icons.light_mode : Icons.dark_mode),
           ),
           const SizedBox(width: 5),
         ],
@@ -545,7 +528,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
           NavigationDestination(
             icon: const Icon(Icons.mosque_outlined),
             selectedIcon: const Icon(Icons.mosque),
-            label: _english ? 'Amal' : 'আমল',
+            label: _english ? 'Prohori' : 'প্রহরী',
           ),
           NavigationDestination(
             icon: const Icon(Icons.favorite_border),
