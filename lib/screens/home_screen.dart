@@ -6,6 +6,7 @@ class HomeScreen extends StatelessWidget {
   final bool english;
   final VoidCallback onGoals;
   final VoidCallback onWorship;
+  final VoidCallback onTodayAmal;
   final VoidCallback onRights;
   final VoidCallback onReflection;
 
@@ -15,6 +16,7 @@ class HomeScreen extends StatelessWidget {
     required this.english,
     required this.onGoals,
     required this.onWorship,
+    required this.onTodayAmal,
     required this.onRights,
     required this.onReflection,
   });
@@ -25,42 +27,30 @@ class HomeScreen extends StatelessWidget {
   }
 
   int _countCompleted(dynamic value) {
-    if (value is List) {
-      return value.where(_isCompleted).length;
-    }
-
-    if (value is Map) {
-      return value.values.where(_isCompleted).length;
-    }
-
+    if (value is List) return value.where(_isCompleted).length;
+    if (value is Map) return value.values.where(_isCompleted).length;
     return 0;
   }
 
   bool _isCompleted(dynamic item) {
     if (item is bool) return item;
-
     if (item is Map) {
       return item['completed'] == true ||
           item['done'] == true ||
           item['isDone'] == true;
     }
-
     return false;
   }
 
   Map<String, dynamic> get _amalTracker {
     final raw = data['amalTracker'];
-    if (raw is Map) {
-      return Map<String, dynamic>.from(raw);
-    }
+    if (raw is Map) return Map<String, dynamic>.from(raw);
     return {};
   }
 
   int get _stage {
     final value = _amalTracker['stage'];
-    if (value is int && [3, 7, 10, 40].contains(value)) {
-      return value;
-    }
+    if (value is int && [3, 7, 10, 40].contains(value)) return value;
     return 3;
   }
 
@@ -96,31 +86,20 @@ class HomeScreen extends StatelessWidget {
     }
   }
 
-  int get _amalTodayCompleted {
-    final logsRaw = _amalTracker['logs'];
-    if (logsRaw is! Map) return 0;
-
-    final logRaw = logsRaw[_todayKey];
-    if (logRaw is! Map) return 0;
-
-    final checksRaw = logRaw['checks'];
-    if (checksRaw is! Map) return 0;
-
-    return checksRaw.values.where((value) => value == true).length;
+  Map<String, dynamic> get _todayAmalChecks {
+    final logs = data['todayAmalLogs'];
+    if (logs is! Map) return {};
+    final today = logs[_todayKey];
+    if (today is! Map) return {};
+    final checks = today['checks'];
+    if (checks is! Map) return {};
+    return Map<String, dynamic>.from(checks);
   }
 
-  int get _amalTodayTotal {
-    final logsRaw = _amalTracker['logs'];
-    if (logsRaw is! Map) return 0;
+  int get _todayAmalCompleted =>
+      _todayAmalChecks.values.where((value) => value == true).length;
 
-    final logRaw = logsRaw[_todayKey];
-    if (logRaw is! Map) return 0;
-
-    final requiredRaw = logRaw['requiredIds'];
-    if (requiredRaw is! List) return 0;
-
-    return requiredRaw.length;
-  }
+  int get _todayAmalTotal => 29;
 
   @override
   Widget build(BuildContext context) {
@@ -150,10 +129,8 @@ class HomeScreen extends StatelessWidget {
                     ),
               ),
             ),
-            const Icon(
-              Icons.waving_hand_rounded,
-              color: Color(0xFFC9A45C),
-            ),
+            const Icon(Icons.waving_hand_rounded,
+                color: Color(0xFFC9A45C)),
           ],
         ),
         const SizedBox(height: 6),
@@ -164,7 +141,6 @@ class HomeScreen extends StatelessWidget {
           style: Theme.of(context).textTheme.bodyMedium,
         ),
         const SizedBox(height: 20),
-
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,
@@ -184,10 +160,10 @@ class HomeScreen extends StatelessWidget {
             _statCard(
               context,
               title: english ? 'Amal today' : 'আজকের আমল',
-              value: '$_amalTodayCompleted/$_amalTodayTotal',
+              value: '$_todayAmalCompleted/$_todayAmalTotal',
               icon: Icons.mosque_rounded,
               color: const Color(0xFF8A4DB8),
-              onTap: onWorship,
+              onTap: onTodayAmal,
             ),
             _statCard(
               context,
@@ -209,7 +185,7 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 20),
 
-        // Current Amal stage
+        // প্রহরী: আগের স্টেজ ও অগ্রগতি অপরিবর্তিত
         Card(
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
@@ -222,11 +198,8 @@ class HomeScreen extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.stars_rounded,
-                        color: Color(0xFFC9A45C),
-                        size: 30,
-                      ),
+                      const Icon(Icons.stars_rounded,
+                          color: Color(0xFFC9A45C), size: 30),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
@@ -237,16 +210,14 @@ class HomeScreen extends StatelessWidget {
                                   ? 'Your Amal journey'
                                   : 'তোমার আমলের যাত্রা',
                               style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
+                                  .textTheme.titleMedium
                                   ?.copyWith(fontWeight: FontWeight.bold),
                             ),
                             const SizedBox(height: 5),
                             Text(
                               _stageName,
                               style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
+                                  .textTheme.titleLarge
                                   ?.copyWith(
                                     fontWeight: FontWeight.bold,
                                     color:
@@ -291,8 +262,7 @@ class HomeScreen extends StatelessWidget {
                       value: progress,
                       minHeight: 10,
                       backgroundColor: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest,
+                          .colorScheme.surfaceContainerHighest,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -312,9 +282,7 @@ class HomeScreen extends StatelessWidget {
                     child: FilledButton.tonalIcon(
                       onPressed: onWorship,
                       icon: const Icon(Icons.checklist_rounded),
-                      label: Text(
-                        english ? 'Open Amal' : 'আমল লিখুন',
-                      ),
+                      label: Text(english ? 'Open Prohori' : 'প্রহরী খুলুন'),
                     ),
                   ),
                 ],
@@ -324,11 +292,11 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        // Today's Amal progress
+        // নতুন আজকের আমল চেকলিস্ট
         Card(
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
-            onTap: onWorship,
+            onTap: onTodayAmal,
             child: Padding(
               padding: const EdgeInsets.all(18),
               child: Column(
@@ -336,22 +304,19 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(
-                        Icons.today_rounded,
-                        color: Color(0xFFC9A45C),
-                      ),
+                      const Icon(Icons.today_rounded,
+                          color: Color(0xFFC9A45C)),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           english ? 'Today’s Amal' : 'আজকের আমল',
                           style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
+                              .textTheme.titleMedium
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                       ),
                       Text(
-                        '$_amalTodayCompleted/$_amalTodayTotal',
+                        '$_todayAmalCompleted/$_todayAmalTotal',
                         style:
                             Theme.of(context).textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
@@ -363,22 +328,19 @@ class HomeScreen extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: LinearProgressIndicator(
-                      value: _amalTodayTotal == 0
-                          ? 0.0
-                          : (_amalTodayCompleted / _amalTodayTotal)
-                              .clamp(0.0, 1.0)
-                              .toDouble(),
+                      value: (_todayAmalCompleted / _todayAmalTotal)
+                          .clamp(0.0, 1.0)
+                          .toDouble(),
                       minHeight: 9,
                       backgroundColor: Theme.of(context)
-                          .colorScheme
-                          .surfaceContainerHighest,
+                          .colorScheme.surfaceContainerHighest,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     english
-                        ? 'Tap to open your Amal checklist.'
-                        : 'আজকের আমলের তালিকা খুলতে এখানে চাপ দাও।',
+                        ? 'Tap to open your daily checklist.'
+                        : 'ফরজ, সুন্নাহ-নফল ও বর্জনীয় কাজের তালিকা খুলতে চাপ দাও।',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -387,15 +349,12 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-
         Card(
           child: ListTile(
             leading: const CircleAvatar(
               backgroundColor: Color(0x1FC9A45C),
-              child: Icon(
-                Icons.menu_book_rounded,
-                color: Color(0xFFC9A45C),
-              ),
+              child: Icon(Icons.menu_book_rounded,
+                  color: Color(0xFFC9A45C)),
             ),
             title: Text(
               english ? 'Daily reflection' : 'দৈনিক আত্মসমালোচনা',
@@ -411,18 +370,14 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-
         Card(
           child: Padding(
             padding: const EdgeInsets.all(18),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.lightbulb_outline_rounded,
-                  color: Color(0xFFC9A45C),
-                  size: 28,
-                ),
+                const Icon(Icons.lightbulb_outline_rounded,
+                    color: Color(0xFFC9A45C), size: 28),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -431,8 +386,7 @@ class HomeScreen extends StatelessWidget {
                       Text(
                         english ? 'A little reminder' : 'একটি ছোট স্মরণিকা',
                         style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
+                            .textTheme.titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 6),
@@ -477,8 +431,7 @@ class HomeScreen extends StatelessWidget {
                   Text(
                     value,
                     style: Theme.of(context)
-                        .textTheme
-                        .headlineSmall
+                        .textTheme.headlineSmall
                         ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 3),
