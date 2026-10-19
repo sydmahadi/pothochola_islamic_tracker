@@ -5,7 +5,9 @@ import 'screens/goals_screen.dart';
 import 'screens/worship_screen.dart';
 import 'screens/rights_screen.dart';
 import 'screens/reflection_screen.dart';
+import 'screens/report_screen.dart';
 import 'services/storage_service.dart';
+import 'services/daily_content_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,8 +26,9 @@ class _PathcholaAppState extends State<PathcholaApp> {
 
   Map<String, dynamic> _data = {};
   bool _english = false;
-  bool _dark = false;
+  bool _dark = true;
   bool _loading = true;
+  bool _dailyDialogShown = false;
   String? _loadError;
   int _selectedIndex = 0;
 
@@ -57,6 +60,13 @@ class _PathcholaAppState extends State<PathcholaApp> {
         _english = results[1] as bool;
         _dark = results[2] as bool;
         _loading = false;
+      });
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_dailyDialogShown && _loadError == null) {
+          _dailyDialogShown = true;
+          _showDailyPopup();
+        }
       });
     } catch (e, stackTrace) {
       debugPrint('PATHCHOLA LOAD ERROR: $e');
@@ -121,6 +131,73 @@ class _PathcholaAppState extends State<PathcholaApp> {
     } catch (e) {
       debugPrint('Theme setting error: $e');
     }
+  }
+
+  Future<void> _showDailyPopup() async {
+    if (!mounted) return;
+
+    final item = DailyContentService.forToday();
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return AlertDialog(
+          icon: Icon(
+            item.isQuran ? Icons.menu_book_rounded : Icons.auto_stories_rounded,
+            size: 34,
+            color: const Color(0xFFC9A45C),
+          ),
+          title: Text(
+            item.isQuran
+                ? (_english ? 'Verse of the day' : 'আজকের কুরআনের আয়াত')
+                : (_english ? 'Hadith of the day' : 'আজকের হাদিস'),
+            textAlign: TextAlign.center,
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: Text(
+                    item.arabic,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 25,
+                      height: 1.9,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  _english ? item.english : item.bangla,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 17, height: 1.6),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  item.reference,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Theme.of(dialogContext).colorScheme.secondary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.center,
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(_english ? 'Continue' : 'শুরু করি'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -270,11 +347,29 @@ class _PathcholaAppState extends State<PathcholaApp> {
         english: _english,
         onDataChanged: _changeData,
       ),
+      ReportScreen(
+        data: _data,
+        english: _english,
+      ),
     ];
 
     final titles = _english
-        ? ['Home', 'Goals', 'Worship', 'Rights', 'Reflection']
-        : ['হোম', 'লক্ষ্য', 'ইবাদত', 'দায়িত্ব', 'আত্মসমালোচনা'];
+        ? [
+            'Home',
+            'Goals',
+            'Worship',
+            'Rights',
+            'Reflection',
+            'Report',
+          ]
+        : [
+            'হোম',
+            'লক্ষ্য',
+            'ইবাদত',
+            'দায়িত্ব',
+            'আত্মসমালোচনা',
+            'রিপোর্ট',
+          ];
 
     return Scaffold(
       appBar: AppBar(
@@ -330,6 +425,11 @@ class _PathcholaAppState extends State<PathcholaApp> {
             icon: const Icon(Icons.menu_book_outlined),
             selectedIcon: const Icon(Icons.menu_book),
             label: _english ? 'Reflect' : 'ভাবনা',
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.bar_chart_outlined),
+            selectedIcon: const Icon(Icons.bar_chart),
+            label: _english ? 'Report' : 'রিপোর্ট',
           ),
         ],
       ),
