@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../widgets/animated_header.dart';
-
 class HomeScreen extends StatelessWidget {
   final Map<String, dynamic> data;
   final bool english;
