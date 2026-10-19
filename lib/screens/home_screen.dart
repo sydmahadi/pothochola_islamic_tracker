@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -56,6 +57,84 @@ class HomeScreen extends StatelessWidget {
         .length;
   }
 
+  Map<String, dynamic> get _amalTracker {
+    final raw = data['amalTracker'];
+    if (raw is Map) {
+      return Map<String, dynamic>.from(raw);
+    }
+    return {};
+  }
+
+  int get _stage {
+    final value = _amalTracker['stage'];
+    if (value is int && [3, 7, 10, 40].contains(value)) {
+      return value;
+    }
+    return 3;
+  }
+
+  int get _stageProgress {
+    final value = _amalTracker['progress'];
+    final progress = value is num ? value.toInt() : 0;
+    return progress.clamp(0, _stage).toInt();
+  }
+
+  String get _stageName {
+    switch (_stage) {
+      case 7:
+        return english ? 'Path of the Muttaqin' : 'মুত্তাকীনের পথে';
+      case 10:
+        return english ? 'Path of the Muhsin' : 'মুহসিনের পথে';
+      case 40:
+        return english ? 'Path of the Siddiqin' : 'সিদ্দিকীনের পথে';
+      default:
+        return english ? 'Path of the Saliheen' : 'সালেহীনের পথে';
+    }
+  }
+
+  String get _nextStageName {
+    switch (_stage) {
+      case 3:
+        return english ? 'Saliheen' : 'সালেহীনের পথে';
+      case 7:
+        return english ? 'Muttaqin' : 'মুত্তাকীনের পথে';
+      case 10:
+        return english ? 'Muhsin' : 'মুহসিনীনের পথে';
+      default:
+        return english ? 'Siddiqin' : 'সিদ্দিকীনের পথে';
+    }
+  }
+
+  int get _amalTodayCompleted {
+    final tracker = _amalTracker;
+    final logsRaw = tracker['logs'];
+
+    if (logsRaw is! Map) return 0;
+
+    final logRaw = logsRaw[_todayKey];
+    if (logRaw is! Map) return 0;
+
+    final checksRaw = logRaw['checks'];
+    if (checksRaw is! Map) return 0;
+
+    return checksRaw.values.where((value) => value == true).length;
+  }
+
+  int get _amalTodayTotal {
+    final tracker = _amalTracker;
+    final logsRaw = tracker['logs'];
+
+    if (logsRaw is! Map) return 0;
+
+    final logRaw = logsRaw[_todayKey];
+    if (logRaw is! Map) return 0;
+
+    final requiredRaw = logRaw['requiredIds'];
+    if (requiredRaw is! List) return 0;
+
+    return requiredRaw.length;
+  }
+
   @override
   Widget build(BuildContext context) {
     final goals = data['goals'];
@@ -70,6 +149,8 @@ class HomeScreen extends StatelessWidget {
     final completedGoals = _countCompleted(goals);
     final completedRights = _countCompleted(rights);
 
+    final progress = _stageProgress / _stage;
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -83,7 +164,10 @@ class HomeScreen extends StatelessWidget {
                     ),
               ),
             ),
-            const Icon(Icons.waving_hand_rounded, color: Color(0xFFC9A45C)),
+            const Icon(
+              Icons.waving_hand_rounded,
+              color: Color(0xFFC9A45C),
+            ),
           ],
         ),
         const SizedBox(height: 6),
@@ -95,7 +179,6 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 20),
 
-        // Summary cards
         GridView.count(
           crossAxisCount: 2,
           shrinkWrap: true,
@@ -114,8 +197,8 @@ class HomeScreen extends StatelessWidget {
             ),
             _statCard(
               context,
-              title: english ? 'Worship today' : 'আজকের ইবাদত',
-              value: '$_worshipCompleted/7',
+              title: english ? 'Amal today' : 'আজকের আমল',
+              value: '$_amalTodayCompleted/$_amalTodayTotal',
               icon: Icons.mosque_rounded,
               color: const Color(0xFF8A4DB8),
               onTap: onWorship,
@@ -140,7 +223,120 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 20),
 
-        // Daily worship progress
+        // Current Amal stage
+        Card(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(18),
+            onTap: onWorship,
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.stars_rounded,
+                        color: Color(0xFFC9A45C),
+                        size: 30,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              english ? 'Your Amal journey' : 'তোমার আমলের যাত্রা',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              _stageName,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _stage == 40
+                              ? (english
+                                  ? 'Consecutive days in this stage'
+                                  : 'এই স্তরে ধারাবাহিক দিন')
+                              : (english
+                                  ? 'Progress to next stage'
+                                  : 'পরবর্তী স্তরের অগ্রগতি'),
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                      Text(
+                        '$_stageProgress/$_stage',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 10,
+                      backgroundColor: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _stage == 40
+                        ? (english
+                            ? 'Keep going with sincerity and consistency.'
+                            : 'আন্তরিকতা ও ধারাবাহিকতার সঙ্গে আমল চালিয়ে যাও।')
+                        : (english
+                            ? 'Next: $_nextStageName'
+                            : 'পরবর্তী স্তর: $_nextStageName'),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: FilledButton.tonalIcon(
+                      onPressed: onWorship,
+                      icon: const Icon(Icons.checklist_rounded),
+                      label: Text(
+                        english ? 'Open Amal' : 'আমল লিখুন',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Today's Amal checklist progress
         Card(
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
@@ -153,20 +349,24 @@ class HomeScreen extends StatelessWidget {
                   Row(
                     children: [
                       const Icon(
-                        Icons.mosque_rounded,
+                        Icons.today_rounded,
                         color: Color(0xFFC9A45C),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          english ? 'Daily worship progress' : 'দৈনিক ইবাদতের অগ্রগতি',
-                          style: Theme.of(context).textTheme.titleMedium
+                          english ? 'Today’s Amal' : 'আজকের আমল',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                       ),
                       Text(
-                        '$_worshipCompleted/7',
-                        style: Theme.of(context).textTheme.titleMedium
+                        '$_amalTodayCompleted/$_amalTodayTotal',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -175,17 +375,22 @@ class HomeScreen extends StatelessWidget {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(20),
                     child: LinearProgressIndicator(
-                      value: _worshipCompleted / 7,
+                      value: _amalTodayTotal == 0
+                          ? 0
+                          : (_amalTodayCompleted / _amalTodayTotal)
+                              .clamp(0.0, 1.0)
+                              .toDouble(),
                       minHeight: 9,
-                      backgroundColor:
-                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                      backgroundColor: Theme.of(context)
+                          .colorScheme
+                          .surfaceContainerHighest,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     english
-                        ? 'Tap to update today’s worship.'
-                        : 'আজকের ইবাদতের হিসাব দিতে এখানে চাপ দিন।',
+                        ? 'Tap to open your Amal checklist.'
+                        : 'আজকের আমলের তালিকা খুলতে এখানে চাপ দাও।',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
@@ -195,12 +400,14 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        // Reflection shortcut
         Card(
           child: ListTile(
             leading: const CircleAvatar(
               backgroundColor: Color(0x1FC9A45C),
-              child: Icon(Icons.menu_book_rounded, color: Color(0xFFC9A45C)),
+              child: Icon(
+                Icons.menu_book_rounded,
+                color: Color(0xFFC9A45C),
+              ),
             ),
             title: Text(
               english ? 'Daily reflection' : 'দৈনিক আত্মসমালোচনা',
@@ -235,7 +442,9 @@ class HomeScreen extends StatelessWidget {
                     children: [
                       Text(
                         english ? 'A little reminder' : 'একটি ছোট স্মরণিকা',
-                        style: Theme.of(context).textTheme.titleMedium
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 6),
@@ -279,9 +488,10 @@ class HomeScreen extends StatelessWidget {
                 children: [
                   Text(
                     value,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: Theme.of(context)
+                        .textTheme
+                        .headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 3),
                   Text(
