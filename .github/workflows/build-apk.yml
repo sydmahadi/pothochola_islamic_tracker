@@ -1,5 +1,4 @@
-
-name: Build Pathchola APK
+name: Build Prohori APK
 
 on:
   workflow_dispatch:
@@ -30,6 +29,13 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Check app icon
+        run: |
+          if [ ! -f prohori.png ]; then
+            echo "ERROR: prohori.png was not found in repository root."
+            exit 1
+          fi
+
       - name: Generate fresh Android project
         run: |
           flutter create \
@@ -45,8 +51,24 @@ jobs:
       - name: Set app display name
         run: |
           sed -i \
-            's/android:label="pothochola_islamic_tracker"/android:label="পথচলা"/' \
+            's/android:label="[^"]*"/android:label="প্রহরী"/' \
             android/app/src/main/AndroidManifest.xml
+
+      - name: Install launcher icon generator
+        run: flutter pub add --dev flutter_launcher_icons
+
+      - name: Configure app icon
+        run: |
+          cat > flutter_launcher_icons.yaml <<'EOF'
+          flutter_launcher_icons:
+            android: true
+            ios: false
+            image_path: "prohori.png"
+            min_sdk_android: 21
+          EOF
+
+      - name: Generate Android launcher icons
+        run: dart run flutter_launcher_icons -f flutter_launcher_icons.yaml
 
       - name: Clean old build artifacts
         run: flutter clean
@@ -66,7 +88,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Pathchola-Android-APK
+          name: Prohori-Android-APK
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: error
           retention-days: 14
