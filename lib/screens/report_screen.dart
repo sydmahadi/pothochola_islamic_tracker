@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 
 class ReportScreen extends StatefulWidget {
@@ -15,130 +16,220 @@ class ReportScreen extends StatefulWidget {
 }
 
 class _ReportScreenState extends State<ReportScreen> {
-  bool _monthly = false;
+  String _period = 'weekly';
 
-  static const List<String> _bn = [
-    'পাঁচ ওয়াক্ত সালাত',
-    'কুরআন তিলাওয়াত',
-    'সকালের যিকির',
-    'সন্ধ্যার যিকির',
-    'দোয়া ও ইস্তিগফার',
-    'ইসলামি জ্ঞান অর্জন',
-    'সদকা বা ভালো কাজ',
-  ];
+  static const Map<String, Map<String, String>> _labels = {
+    'fajr': {'bn': 'ফজরের ফরজ সালাত', 'en': 'Fajr obligatory prayer'},
+    'dhuhr': {'bn': 'যোহরের ফরজ সালাত', 'en': 'Dhuhr obligatory prayer'},
+    'asr': {'bn': 'আসরের ফরজ সালাত', 'en': 'Asr obligatory prayer'},
+    'maghrib': {'bn': 'মাগরিবের ফরজ সালাত', 'en': 'Maghrib obligatory prayer'},
+    'isha': {'bn': 'ইশার ফরজ সালাত', 'en': 'Isha obligatory prayer'},
+    'fast': {'bn': 'রমজানের রোজা', 'en': 'Ramadan fast'},
+    'parents': {'bn': 'মা-বাবার সঙ্গে সদাচরণ', 'en': 'Kindness to parents'},
+    'rights': {'bn': 'মানুষের হক ও আমানত', 'en': 'People’s rights and trusts'},
+    'fajr_sunnah': {'bn': 'ফজরের দুই রাকাত সুন্নত', 'en': 'Two Sunnah rakats before Fajr'},
+    'rawatib': {'bn': 'অন্যান্য সুন্নাতে রাতিবা', 'en': 'Other regular Sunnah prayers'},
+    'witr': {'bn': 'বিতরের সালাত', 'en': 'Witr prayer'},
+    'tahajjud': {'bn': 'তাহাজ্জুদ সালাত', 'en': 'Tahajjud prayer'},
+    'duha': {'bn': 'দুহা/চাশতের সালাত', 'en': 'Duha prayer'},
+    'quran': {'bn': 'কুরআন তিলাওয়াত', 'en': 'Quran recitation'},
+    'morning_dhikr': {'bn': 'সকালের যিকির', 'en': 'Morning adhkar'},
+    'evening_dhikr': {'bn': 'সন্ধ্যার যিকির', 'en': 'Evening adhkar'},
+    'dua': {'bn': 'দোয়া ও ইস্তিগফার', 'en': 'Dua and istighfar'},
+    'salawat': {'bn': 'দরুদ পাঠ', 'en': 'Sending salawat'},
+    'learning': {'bn': 'ইসলামি জ্ঞান অর্জন', 'en': 'Islamic learning'},
+    'charity': {'bn': 'সদকা বা ভালো কাজ', 'en': 'Charity or good deed'},
+    'silah': {'bn': 'আত্মীয়তার সম্পর্ক', 'en': 'Maintaining family ties'},
+    'truth': {'bn': 'মিথ্যা থেকে বিরত থাকা', 'en': 'Avoided lying'},
+    'backbiting': {'bn': 'গীবত ও অপবাদ থেকে বিরত থাকা', 'en': 'Avoided backbiting and slander'},
+    'cheating': {'bn': 'প্রতারণা থেকে বিরত থাকা', 'en': 'Avoided cheating'},
+    'anger': {'bn': 'রাগ ও গালাগালি নিয়ন্ত্রণ', 'en': 'Controlled anger and abusive speech'},
+    'pride': {'bn': 'অহংকার থেকে বিরত থাকা', 'en': 'Avoided arrogance'},
+    'riya': {'bn': 'লোক দেখানো আমল থেকে বিরত থাকা', 'en': 'Avoided showing off'},
+    'haram': {'bn': 'হারাম উপার্জন থেকে বিরত থাকা', 'en': 'Avoided unlawful earnings'},
+    'gaze': {'bn': 'দৃষ্টি ও আচরণ সংযত রাখা', 'en': 'Guarded gaze and conduct'},
+    'waste': {'bn': 'অপচয় থেকে বিরত থাকা', 'en': 'Avoided waste'},
+  };
 
-  static const List<String> _en = [
-    'Five daily prayers',
-    'Quran recitation',
-    'Morning adhkar',
-    'Evening adhkar',
-    'Dua and istighfar',
-    'Islamic learning',
-    'Charity or good deed',
-  ];
-
-  String _dateKey(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  Map<String, dynamic> _map(dynamic value) {
+    if (value is Map) return Map<String, dynamic>.from(value);
+    return <String, dynamic>{};
   }
 
-  Map<String, dynamic> get _habits {
-    return Map<String, dynamic>.from(widget.data['habits'] ?? {});
-  }
+  String _key(DateTime date) =>
+      '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
-  bool _isDone(DateTime date, int index) {
-    final day = Map<String, dynamic>.from(
-      _habits[_dateKey(date)] ?? {},
-    );
-    return day['$index'] == true;
-  }
-
-  List<DateTime> get _periodDays {
+  DateTime get _today {
     final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    return DateTime(now.year, now.month, now.day);
+  }
 
-    final start = _monthly
-        ? DateTime(now.year, now.month, 1)
-        : today.subtract(Duration(days: today.weekday - 1));
+  List<DateTime> get _days {
+    final today = _today;
+    late DateTime start;
 
-    final count = today.difference(start).inDays + 1;
+    if (_period == 'weekly') {
+      start = today.subtract(Duration(days: today.weekday - 1));
+    } else if (_period == 'monthly') {
+      start = DateTime(today.year, today.month, 1);
+    } else {
+      start = DateTime(today.year, 1, 1);
+    }
 
     return List.generate(
-      count,
+      today.difference(start).inDays + 1,
       (index) => start.add(Duration(days: index)),
     );
   }
 
-  int _dayCount(DateTime date) {
-    return List.generate(7, (index) => _isDone(date, index))
-        .where((done) => done)
-        .length;
+  Map<String, dynamic> _log(DateTime date) {
+    final all = _map(widget.data['todayAmalLogs']);
+    return _map(all[_key(date)]);
   }
 
-  int get _completedTotal {
-    return _periodDays.fold<int>(
-      0,
-      (sum, date) => sum + _dayCount(date),
-    );
+  Map<String, dynamic> _checks(DateTime date) =>
+      _map(_log(date)['checks']);
+
+  List<String> _required(DateTime date) {
+    final raw = _log(date)['requiredIds'];
+    if (raw is List) return raw.map((e) => e.toString()).toList();
+    return const [];
   }
 
-  int get _possibleTotal => _periodDays.length * 7;
-
-  int get _bestDay {
-    if (_periodDays.isEmpty) return 0;
-
-    return _periodDays
-        .map(_dayCount)
-        .reduce((a, b) => a > b ? a : b);
+  int _done(DateTime date) {
+    final required = _required(date);
+    final checks = _checks(date);
+    return required.where((id) => checks[id] == true).length;
   }
 
-  int _habitTotal(int index) {
-    return _periodDays.where((date) => _isDone(date, index)).length;
+  int _total(DateTime date) => _required(date).length;
+
+  bool _hasRecord(DateTime date) =>
+      _map(widget.data['todayAmalLogs']).containsKey(_key(date));
+
+  double _ratio(DateTime date) {
+    final total = _total(date);
+    if (total == 0) return 0;
+    return (_done(date) / total).clamp(0.0, 1.0).toDouble();
+  }
+
+  int get _doneTotal => _days.fold(0, (sum, date) => sum + _done(date));
+  int get _possibleTotal => _days.fold(0, (sum, date) => sum + _total(date));
+
+  double get _ratioTotal {
+    if (_possibleTotal == 0) return 0;
+    return (_doneTotal / _possibleTotal).clamp(0.0, 1.0).toDouble();
+  }
+
+  List<String> get _ids {
+    final ids = <String>{};
+    for (final date in _days) {
+      ids.addAll(_required(date));
+      ids.addAll(_checks(date).keys.map((e) => e.toString()));
+    }
+    final result = ids.toList()..sort();
+    return result;
+  }
+
+  String _label(String id) {
+    final pair = _labels[id];
+    if (pair == null) return id;
+    return widget.english ? pair['en']! : pair['bn']!;
+  }
+
+  String _dateLabel(DateTime date) {
+    if (widget.english) return _key(date);
+    return '${date.day.toString().padLeft(2, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-${date.year}';
+  }
+
+  Map<String, int> _statsForId(String id) {
+    int done = 0;
+    int total = 0;
+
+    for (final date in _days) {
+      if (_required(date).contains(id)) {
+        total++;
+        if (_checks(date)[id] == true) done++;
+      }
+    }
+    return {'done': done, 'total': total};
+  }
+
+  Map<String, int> _monthStats(int month) {
+    final today = _today;
+    final start = DateTime(today.year, month, 1);
+    final end = month == today.month ? today : DateTime(today.year, month + 1, 0);
+
+    int done = 0;
+    int total = 0;
+
+    for (DateTime date = start;
+        !date.isAfter(end);
+        date = date.add(const Duration(days: 1))) {
+      done += _done(date);
+      total += _total(date);
+    }
+
+    return {'done': done, 'total': total};
+  }
+
+  String _monthName(int month) {
+    const bn = [
+      'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল',
+      'মে', 'জুন', 'জুলাই', 'আগস্ট',
+      'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর',
+    ];
+    const en = [
+      'January', 'February', 'March', 'April',
+      'May', 'June', 'July', 'August',
+      'September', 'October', 'November', 'December',
+    ];
+    return widget.english ? en[month - 1] : bn[month - 1];
   }
 
   @override
   Widget build(BuildContext context) {
-    final labels = widget.english ? _en : _bn;
-    final percent = _possibleTotal == 0
-        ? 0.0
-        : _completedTotal / _possibleTotal;
+    final english = widget.english;
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          widget.english ? 'Worship report' : 'ইবাদতের রিপোর্ট',
+          english ? 'Today’s Amal report' : 'আজকের আমলের রিপোর্ট',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
         ),
         const SizedBox(height: 6),
         Text(
-          widget.english
-              ? 'Review your weekly and monthly progress.'
-              : 'সাপ্তাহিক ও মাসিক ইবাদতের অগ্রগতি দেখুন।',
+          english
+              ? 'Reports are based only on the Today’s Amal checklist.'
+              : 'শুধু “আজকের আমল” তালিকার তথ্য দিয়ে রিপোর্ট তৈরি হয়েছে।',
         ),
         const SizedBox(height: 18),
-
-        SegmentedButton<bool>(
+        SegmentedButton<String>(
           segments: [
-            ButtonSegment<bool>(
-              value: false,
-              label: Text(widget.english ? 'Weekly' : 'সাপ্তাহিক'),
+            ButtonSegment(
+              value: 'weekly',
+              label: Text(english ? 'Weekly' : 'সাপ্তাহিক'),
               icon: const Icon(Icons.calendar_view_week),
             ),
-            ButtonSegment<bool>(
-              value: true,
-              label: Text(widget.english ? 'Monthly' : 'মাসিক'),
+            ButtonSegment(
+              value: 'monthly',
+              label: Text(english ? 'Monthly' : 'মাসিক'),
               icon: const Icon(Icons.calendar_month),
             ),
+            ButtonSegment(
+              value: 'yearly',
+              label: Text(english ? 'Yearly' : 'বার্ষিক'),
+              icon: const Icon(Icons.calendar_today),
+            ),
           ],
-          selected: {_monthly},
-          onSelectionChanged: (selection) {
-            setState(() => _monthly = selection.first);
-          },
+          selected: {_period},
+          onSelectionChanged: (value) => setState(() => _period = value.first),
         ),
         const SizedBox(height: 16),
-
         Card(
           child: Padding(
             padding: const EdgeInsets.all(18),
@@ -146,194 +237,158 @@ class _ReportScreenState extends State<ReportScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  widget.english ? 'Overall progress' : 'সামগ্রিক অগ্রগতি',
+                  english ? 'Overall completion' : 'সামগ্রিক সম্পন্নের হার',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                 ),
-                const SizedBox(height: 14),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '${(percent * 100).round()}%',
-                      style:
-                          Theme.of(context).textTheme.headlineMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                    ),
-                    const SizedBox(width: 8),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 5),
-                      child: Text(
-                        '$_completedTotal/$_possibleTotal',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 12),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: LinearProgressIndicator(
-                    value: percent,
-                    minHeight: 10,
-                  ),
-                ),
-                const SizedBox(height: 10),
                 Text(
-                  widget.english
-                      ? '${_periodDays.length} days included'
-                      : '${_periodDays.length} দিনের হিসাব অন্তর্ভুক্ত',
+                  '${(_ratioTotal * 100).round()}%',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                LinearProgressIndicator(value: _ratioTotal, minHeight: 9),
+                const SizedBox(height: 8),
+                Text('$_doneTotal / $_possibleTotal'),
+                Text(
+                  english
+                      ? '${_days.length} days in this period'
+                      : 'এই সময়সীমায় ${_days.length} দিন',
                 ),
               ],
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 18),
+        if (_period == 'yearly') ...[
+          Text(
+            english ? 'Monthly summary' : 'মাসভিত্তিক হিসাব',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 8),
+          ...List.generate(DateTime.now().month, (index) {
+            final month = index + 1;
+            final stats = _monthStats(month);
+            final total = stats['total']!;
+            final done = stats['done']!;
+            final ratio = total == 0 ? 0.0 : done / total;
 
-        Row(
-          children: [
-            Expanded(
-              child: _summaryCard(
-                context,
-                title: widget.english ? 'Completed' : 'সম্পন্ন',
-                value: '$_completedTotal',
-                icon: Icons.check_circle_outline,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _summaryCard(
-                context,
-                title: widget.english ? 'Best day' : 'সেরা দিন',
-                value: '$_bestDay/7',
-                icon: Icons.emoji_events_outlined,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-
-        Text(
-          widget.english ? 'Habit breakdown' : 'আমলভিত্তিক হিসাব',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        const SizedBox(height: 10),
-
-        ...List.generate(7, (index) {
-          final count = _habitTotal(index);
-          final ratio = _periodDays.isEmpty
-              ? 0.0
-              : count / _periodDays.length;
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 9),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(child: Text(labels[index])),
-                      Text(
-                        '$count/${_periodDays.length}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 9),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: LinearProgressIndicator(
-                      value: ratio,
-                      minHeight: 7,
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: Text(_monthName(month))),
+                        Text('${(ratio * 100).round()}%'),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(value: ratio),
+                    const SizedBox(height: 6),
+                    Text('$done / $total'),
+                  ],
+                ),
               ),
-            ),
-          );
-        }),
-
-        const SizedBox(height: 12),
+            );
+          }),
+          const SizedBox(height: 12),
+        ],
         Text(
-          widget.english ? 'Daily history' : 'দিনভিত্তিক হিসাব',
+          english ? 'Amal breakdown' : 'আমলভিত্তিক হিসাব',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
+        if (_ids.isEmpty)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                english
+                    ? 'No checklist records found for this period.'
+                    : 'এই সময়সীমায় এখনো কোনো আমলের তথ্য সংরক্ষিত নেই।',
+              ),
+            ),
+          )
+        else
+          ..._ids.map((id) {
+            final stats = _statsForId(id);
+            final done = stats['done']!;
+            final total = stats['total']!;
+            final ratio = total == 0 ? 0.0 : done / total;
 
-        ..._periodDays.reversed.map((date) {
-          final count = _dayCount(date);
-          final ratio = count / 7;
+            return Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: Text(_label(id))),
+                        Text('$done/$total'),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(value: ratio),
+                  ],
+                ),
+              ),
+            );
+          }),
+        const SizedBox(height: 12),
+        Text(
+          english ? 'Daily history' : 'দিনভিত্তিক হিসাব',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 8),
+        ...(_period == 'yearly' ? _days.reversed.take(31) : _days.reversed)
+            .map((date) {
+          final done = _done(date);
+          final total = _total(date);
+          final hasRecord = _hasRecord(date);
 
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
-              leading: CircleAvatar(
-                child: Text('${date.day}'),
-              ),
-              title: Text(_formattedDate(date)),
+              leading: CircleAvatar(child: Text('${date.day}')),
+              title: Text(_dateLabel(date)),
               subtitle: Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: LinearProgressIndicator(
-                    value: ratio,
-                    minHeight: 6,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LinearProgressIndicator(value: _ratio(date)),
+                    const SizedBox(height: 5),
+                    Text(
+                      !hasRecord
+                          ? (english ? 'No record' : 'তথ্য সংরক্ষিত নেই')
+                          : '${(_ratio(date) * 100).round()}%',
+                    ),
+                  ],
                 ),
               ),
               trailing: Text(
-                '$count/7',
+                '$done/$total',
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
           );
         }),
       ],
-    );
-  }
-
-  String _formattedDate(DateTime date) {
-    final key = _dateKey(date);
-
-    if (widget.english) return key;
-
-    return '${date.day.toString().padLeft(2, '0')}-'
-        '${date.month.toString().padLeft(2, '0')}-${date.year}';
-  }
-
-  Widget _summaryCard(
-    BuildContext context, {
-    required String title,
-    required String value,
-    required IconData icon,
-  }) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: const Color(0xFFC9A45C), size: 26),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(title),
-          ],
-        ),
-      ),
     );
   }
 }
