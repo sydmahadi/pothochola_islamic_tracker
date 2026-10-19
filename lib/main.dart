@@ -478,7 +478,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
         ? [
             'Home',
             'Goals',
-            'Worship',
+            'Amal',
             'Rights',
             'Reflection',
             'Report',
@@ -486,7 +486,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
         : [
             'হোম',
             'লক্ষ্য',
-            'ইবাদত',
+            'আমল',
             'দায়িত্ব',
             'আত্মসমালোচনা',
             'রিপোর্ট',
@@ -545,7 +545,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
           NavigationDestination(
             icon: const Icon(Icons.mosque_outlined),
             selectedIcon: const Icon(Icons.mosque),
-            label: _english ? 'Worship' : 'ইবাদত',
+            label: _english ? 'Amal' : 'আমল',
           ),
           NavigationDestination(
             icon: const Icon(Icons.favorite_border),
