@@ -48,15 +48,6 @@ class HomeScreen extends StatelessWidget {
     return false;
   }
 
-  int get _worshipCompleted {
-    final habits = Map<String, dynamic>.from(data['habits'] ?? {});
-    final today = Map<String, dynamic>.from(habits[_todayKey] ?? {});
-
-    return List.generate(7, (index) => today['$index'] == true)
-        .where((done) => done)
-        .length;
-  }
-
   Map<String, dynamic> get _amalTracker {
     final raw = data['amalTracker'];
     if (raw is Map) {
@@ -84,7 +75,7 @@ class HomeScreen extends StatelessWidget {
       case 7:
         return english ? 'Path of the Muttaqin' : 'মুত্তাকীনের পথে';
       case 10:
-        return english ? 'Path of the Muhsin' : 'মুহসিনের পথে';
+        return english ? 'Path of the Muhsinin' : 'মুহসিনীনদের পথে';
       case 40:
         return english ? 'Path of the Siddiqin' : 'সিদ্দিকীনের পথে';
       default:
@@ -95,20 +86,18 @@ class HomeScreen extends StatelessWidget {
   String get _nextStageName {
     switch (_stage) {
       case 3:
-        return english ? 'Saliheen' : 'সালেহীনের পথে';
+        return english ? 'Path of the Muttaqin' : 'মুত্তাকীনের পথে';
       case 7:
-        return english ? 'Muttaqin' : 'মুত্তাকীনের পথে';
+        return english ? 'Path of the Muhsinin' : 'মুহসিনীনদের পথে';
       case 10:
-        return english ? 'Muhsin' : 'মুহসিনীনের পথে';
+        return english ? 'Path of the Siddiqin' : 'সিদ্দিকীনের পথে';
       default:
-        return english ? 'Siddiqin' : 'সিদ্দিকীনের পথে';
+        return english ? '40-day stage completed' : '৪০ দিনের স্তর';
     }
   }
 
   int get _amalTodayCompleted {
-    final tracker = _amalTracker;
-    final logsRaw = tracker['logs'];
-
+    final logsRaw = _amalTracker['logs'];
     if (logsRaw is! Map) return 0;
 
     final logRaw = logsRaw[_todayKey];
@@ -121,9 +110,7 @@ class HomeScreen extends StatelessWidget {
   }
 
   int get _amalTodayTotal {
-    final tracker = _amalTracker;
-    final logsRaw = tracker['logs'];
-
+    final logsRaw = _amalTracker['logs'];
     if (logsRaw is! Map) return 0;
 
     final logRaw = logsRaw[_todayKey];
@@ -148,7 +135,6 @@ class HomeScreen extends StatelessWidget {
 
     final completedGoals = _countCompleted(goals);
     final completedRights = _countCompleted(rights);
-
     final progress = _stageProgress / _stage;
 
     return ListView(
@@ -247,7 +233,9 @@ class HomeScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              english ? 'Your Amal journey' : 'তোমার আমলের যাত্রা',
+                              english
+                                  ? 'Your Amal journey'
+                                  : 'তোমার আমলের যাত্রা',
                               style: Theme.of(context)
                                   .textTheme
                                   .titleMedium
@@ -261,9 +249,8 @@ class HomeScreen extends StatelessWidget {
                                   .titleLarge
                                   ?.copyWith(
                                     fontWeight: FontWeight.bold,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .primary,
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
                                   ),
                             ),
                           ],
@@ -290,9 +277,10 @@ class HomeScreen extends StatelessWidget {
                       ),
                       Text(
                         '$_stageProgress/$_stage',
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                     ],
                   ),
@@ -336,7 +324,7 @@ class HomeScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
 
-        // Today's Amal checklist progress
+        // Today's Amal progress
         Card(
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
@@ -364,10 +352,10 @@ class HomeScreen extends StatelessWidget {
                       ),
                       Text(
                         '$_amalTodayCompleted/$_amalTodayTotal',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                     ],
                   ),
@@ -376,7 +364,7 @@ class HomeScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                     child: LinearProgressIndicator(
                       value: _amalTodayTotal == 0
-                          ? 0
+                          ? 0.0
                           : (_amalTodayCompleted / _amalTodayTotal)
                               .clamp(0.0, 1.0)
                               .toDouble(),
