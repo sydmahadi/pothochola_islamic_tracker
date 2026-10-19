@@ -24,7 +24,7 @@ class _PathcholaAppState extends State<PathcholaApp> {
 
   Map<String, dynamic> _data = {};
   bool _english = false;
-  bool _dark = true;
+  bool _dark = false;
   bool _loading = true;
   String? _loadError;
   int _selectedIndex = 0;
