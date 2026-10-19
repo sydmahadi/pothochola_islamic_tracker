@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 class ReportScreen extends StatefulWidget {
@@ -38,242 +37,221 @@ class _ReportScreenState extends State<ReportScreen> {
     'Charity or good deed',
   ];
 
-  String _key(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-  Map<String, dynamic> _habitsFor(DateTime date) {
-    final all = widget.data['habits'];
-    if (all is! Map) return {};
-    final day = all[_key(date)];
-    if (day is! Map) return {};
-    return Map<String, dynamic>.from(day);
+  String _dateKey(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  int _doneFor(DateTime date) {
-    final habits = _habitsFor(date);
-    return List.generate(7, (i) => habits['$i'] == true)
-        .where((v) => v)
+  Map<String, dynamic> get _habits {
+    return Map<String, dynamic>.from(widget.data['habits'] ?? {});
+  }
+
+  bool _isDone(DateTime date, int index) {
+    final day = Map<String, dynamic>.from(
+      _habits[_dateKey(date)] ?? {},
+    );
+    return day['$index'] == true;
+  }
+
+  List<DateTime> get _periodDays {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final start = _monthly
+        ? DateTime(now.year, now.month, 1)
+        : today.subtract(Duration(days: today.weekday - 1));
+
+    final count = today.difference(start).inDays + 1;
+
+    return List.generate(
+      count,
+      (index) => start.add(Duration(days: index)),
+    );
+  }
+
+  int _dayCount(DateTime date) {
+    return List.generate(7, (index) => _isDone(date, index))
+        .where((done) => done)
         .length;
+  }
+
+  int get _completedTotal {
+    return _periodDays.fold<int>(
+      0,
+      (sum, date) => sum + _dayCount(date),
+    );
+  }
+
+  int get _possibleTotal => _periodDays.length * 7;
+
+  int get _bestDay {
+    if (_periodDays.isEmpty) return 0;
+
+    return _periodDays
+        .map(_dayCount)
+        .reduce((a, b) => a > b ? a : b);
+  }
+
+  int _habitTotal(int index) {
+    return _periodDays.where((date) => _isDone(date, index)).length;
   }
 
   @override
   Widget build(BuildContext context) {
-    final english = widget.english;
-    final names = english ? _en : _bn;
-    final now = DateTime.now();
-    final start = _monthly
-        ? DateTime(now.year, now.month)
-        : DateTime(now.year, now.month, now.day)
-            .subtract(Duration(days: now.weekday - 1));
-
-    final end = _monthly
-        ? DateTime(now.year, now.month + 1)
-        : start.add(const Duration(days: 7));
-
-    final days = <DateTime>[];
-    for (var d = start; d.isBefore(end); d = d.add(const Duration(days: 1))) {
-      if (!d.isAfter(now)) days.add(d);
-    }
-
-    final totalPossible = days.length * 7;
-    final totalDone = days.fold<int>(0, (sum, d) => sum + _doneFor(d));
-    final percent = totalPossible == 0 ? 0.0 : totalDone / totalPossible;
-    final bestDay = days.isEmpty
-        ? 0
-        : days.map(_doneFor).reduce((a, b) => a > b ? a : b);
-
-    final todayDone = _doneFor(now);
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
+    final labels = widget.english ? _en : _bn;
+    final percent = _possibleTotal == 0
+        ? 0.0
+        : _completedTotal / _possibleTotal;
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Container(
-          padding: const EdgeInsets.all(22),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF087F5B), Color(0xFF155440)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.insights_rounded,
-                      color: Color(0xFFFFD982), size: 30),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      english ? 'Worship Report' : 'ইবাদতের রিপোর্ট',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
+        Text(
+          widget.english ? 'Worship report' : 'ইবাদতের রিপোর্ট',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
               ),
-              const SizedBox(height: 8),
-              Text(
-                english
-                    ? 'Review your consistency and daily progress.'
-                    : 'আপনার আমলের ধারাবাহিকতা ও অগ্রগতি দেখুন।',
-                style: const TextStyle(color: Colors.white70, height: 1.5),
-              ),
-              const SizedBox(height: 22),
-              SegmentedButton<bool>(
-                segments: [
-                  ButtonSegment(
-                    value: false,
-                    label: Text(english ? 'Weekly' : 'সাপ্তাহিক'),
-                    icon: const Icon(Icons.view_week_outlined),
-                  ),
-                  ButtonSegment(
-                    value: true,
-                    label: Text(english ? 'Monthly' : 'মাসিক'),
-                    icon: const Icon(Icons.calendar_month_outlined),
-                  ),
-                ],
-                selected: {_monthly},
-                onSelectionChanged: (selection) {
-                  setState(() => _monthly = selection.first);
-                },
-              ),
-              const SizedBox(height: 18),
-              Text(
-                '${(percent * 100).round()}%',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 36,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: LinearProgressIndicator(
-                  value: percent,
-                  minHeight: 10,
-                  backgroundColor: Colors.white24,
-                  valueColor: const AlwaysStoppedAnimation(Color(0xFFFFD982)),
-                ),
-              ),
-              const SizedBox(height: 9),
-              Text(
-                english
-                    ? '$totalDone of $totalPossible possible daily actions completed'
-                    : '$totalPossibleটি সম্ভাব্য আমলের মধ্যে $totalDoneটি সম্পন্ন',
-                style: const TextStyle(color: Colors.white70),
-              ),
-            ],
-          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          widget.english
+              ? 'Review your weekly and monthly progress.'
+              : 'সাপ্তাহিক ও মাসিক ইবাদতের অগ্রগতি দেখুন।',
         ),
         const SizedBox(height: 18),
+
+        SegmentedButton<bool>(
+          segments: [
+            ButtonSegment<bool>(
+              value: false,
+              label: Text(widget.english ? 'Weekly' : 'সাপ্তাহিক'),
+              icon: const Icon(Icons.calendar_view_week),
+            ),
+            ButtonSegment<bool>(
+              value: true,
+              label: Text(widget.english ? 'Monthly' : 'মাসিক'),
+              icon: const Icon(Icons.calendar_month),
+            ),
+          ],
+          selected: {_monthly},
+          onSelectionChanged: (selection) {
+            setState(() => _monthly = selection.first);
+          },
+        ),
+        const SizedBox(height: 16),
+
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.english ? 'Overall progress' : 'সামগ্রিক অগ্রগতি',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${(percent * 100).round()}%',
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                    ),
+                    const SizedBox(width: 8),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 5),
+                      child: Text(
+                        '$_completedTotal/$_possibleTotal',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: LinearProgressIndicator(
+                    value: percent,
+                    minHeight: 10,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  widget.english
+                      ? '${_periodDays.length} days included'
+                      : '${_periodDays.length} দিনের হিসাব অন্তর্ভুক্ত',
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
 
         Row(
           children: [
             Expanded(
               child: _summaryCard(
                 context,
-                english ? 'Today' : 'আজকের আমল',
-                '$todayDone / 7',
-                Icons.today_rounded,
-                const Color(0xFF138568),
+                title: widget.english ? 'Completed' : 'সম্পন্ন',
+                value: '$_completedTotal',
+                icon: Icons.check_circle_outline,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: _summaryCard(
                 context,
-                english ? 'Best day' : 'সেরা দিনের আমল',
-                '$bestDay / 7',
-                Icons.emoji_events_rounded,
-                const Color(0xFFD39A35),
+                title: widget.english ? 'Best day' : 'সেরা দিন',
+                value: '$_bestDay/7',
+                icon: Icons.emoji_events_outlined,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
 
         Text(
-          english ? 'Progress by habit' : 'আমল অনুযায়ী অগ্রগতি',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
+          widget.english ? 'Habit breakdown' : 'আমলভিত্তিক হিসাব',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
 
         ...List.generate(7, (index) {
-          final completed = days
-              .where((day) => _habitsFor(day)['$index'] == true)
-              .length;
-          final ratio = days.isEmpty ? 0.0 : completed / days.length;
+          final count = _habitTotal(index);
+          final ratio = _periodDays.isEmpty
+              ? 0.0
+              : count / _periodDays.length;
 
           return Card(
-            margin: const EdgeInsets.only(bottom: 10),
+            margin: const EdgeInsets.only(bottom: 9),
             child: Padding(
-              padding: const EdgeInsets.all(15),
+              padding: const EdgeInsets.all(14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: primary.withValues(alpha: 0.10),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          [
-                            Icons.mosque_rounded,
-                            Icons.menu_book_rounded,
-                            Icons.wb_sunny_rounded,
-                            Icons.nights_stay_rounded,
-                            Icons.favorite_rounded,
-                            Icons.school_rounded,
-                            Icons.volunteer_activism_rounded,
-                          ][index],
-                          color: primary,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          names[index],
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
+                      Expanded(child: Text(labels[index])),
                       Text(
-                        '$completed/${days.length}',
-                        style: TextStyle(
-                          color: primary,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        '$count/${_periodDays.length}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 9),
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(20),
                     child: LinearProgressIndicator(
                       value: ratio,
                       minHeight: 7,
-                      backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                      valueColor: AlwaysStoppedAnimation(primary),
                     ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    '${(ratio * 100).round()}%',
-                    style: theme.textTheme.bodySmall,
                   ),
                 ],
               ),
@@ -281,95 +259,80 @@ class _ReportScreenState extends State<ReportScreen> {
           );
         }),
 
-        const SizedBox(height: 16),
-        Text(
-          english ? 'Daily history' : 'প্রতিদিনের হিসাব',
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
         const SizedBox(height: 12),
+        Text(
+          widget.english ? 'Daily history' : 'দিনভিত্তিক হিসাব',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+        const SizedBox(height: 10),
 
-        ...days.reversed.map((day) {
-          final count = _doneFor(day);
-          final label =
-              '${day.day.toString().padLeft(2, '0')}/'
-              '${day.month.toString().padLeft(2, '0')}/'
-              '${day.year}';
+        ..._periodDays.reversed.map((date) {
+          final count = _dayCount(date);
+          final ratio = count / 7;
 
           return Card(
             margin: const EdgeInsets.only(bottom: 8),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: primary.withValues(alpha: 0.10),
-                child: Icon(
-                  count == 7
-                      ? Icons.check_circle_rounded
-                      : Icons.calendar_today_rounded,
-                  color: primary,
-                ),
+                child: Text('${date.day}'),
               ),
-              title: Text(label),
-              subtitle: Text(
-                count == 7
-                    ? (english ? 'All habits completed' : 'সব আমল সম্পন্ন')
-                    : (english
-                        ? '${7 - count} habits remaining'
-                        : 'আর ${7 - count}টি আমল বাকি'),
+              title: Text(_formattedDate(date)),
+              subtitle: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: LinearProgressIndicator(
+                    value: ratio,
+                    minHeight: 6,
+                  ),
+                ),
               ),
               trailing: Text(
                 '$count/7',
-                style: TextStyle(
-                  color: primary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
           );
         }),
-        const SizedBox(height: 12),
-        Text(
-          english
-              ? 'Reports are calculated from the habit records saved on this device.'
-              : 'এই রিপোর্টে এই ডিভাইসে সংরক্ষিত আমলের তথ্য ব্যবহার করা হয়েছে।',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodySmall,
-        ),
       ],
     );
   }
 
+  String _formattedDate(DateTime date) {
+    final key = _dateKey(date);
+
+    if (widget.english) return key;
+
+    return '${date.day.toString().padLeft(2, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-${date.year}';
+  }
+
   Widget _summaryCard(
-    BuildContext context,
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: color.withValues(alpha: 0.24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 25),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 23,
-              fontWeight: FontWeight.bold,
-              color: color,
+    BuildContext context, {
+    required String title,
+    required String value,
+    required IconData icon,
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: const Color(0xFFC9A45C), size: 26),
+            const SizedBox(height: 12),
+            Text(
+              value,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(title, style: Theme.of(context).textTheme.bodySmall),
-        ],
+            const SizedBox(height: 4),
+            Text(title),
+          ],
+        ),
       ),
     );
   }
