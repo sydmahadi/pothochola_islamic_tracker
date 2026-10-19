@@ -19,6 +19,7 @@ class TodayAmalScreen extends StatefulWidget {
 
 class _TodayAmalScreenState extends State<TodayAmalScreen> {
   bool _saving = false;
+  late Map<String, dynamic> _workingData;
   late Map<String, dynamic> _checks;
 
   String get _todayKey {
@@ -60,28 +61,28 @@ class _TodayAmalScreenState extends State<TodayAmalScreen> {
   ];
 
   Map<String, dynamic> _asMap(dynamic value) {
-    if (value is Map) return Map<String, dynamic>.from(value);
+    if (value is Map) {
+      return Map<String, dynamic>.from(value);
+    }
     return <String, dynamic>{};
   }
 
   @override
   void initState() {
     super.initState();
-    final allLogs = _asMap(widget.data['todayAmalLogs']);
-    final today = _asMap(allLogs[_todayKey]);
-    _checks = _asMap(today['checks']);
-  }
 
-  @override
-  void didUpdateWidget(covariant TodayAmalScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final allLogs = _asMap(widget.data['todayAmalLogs']);
-    final today = _asMap(allLogs[_todayKey]);
+    _workingData = Map<String, dynamic>.from(widget.data);
+
+    final logs = _asMap(_workingData['todayAmalLogs']);
+    final today = _asMap(logs[_todayKey]);
+
     _checks = _asMap(today['checks']);
   }
 
   List<Map<String, String>> _categoryItems(String category) {
-    return _items.where((item) => item['category'] == category).toList();
+    return _items
+        .where((item) => item['category'] == category)
+        .toList();
   }
 
   int _doneCount(List<Map<String, String>> items) {
@@ -92,30 +93,52 @@ class _TodayAmalScreenState extends State<TodayAmalScreen> {
     if (_saving) return;
 
     final previousChecks = Map<String, dynamic>.from(_checks);
+    final previousData = Map<String, dynamic>.from(_workingData);
+
     final nextChecks = Map<String, dynamic>.from(_checks);
     nextChecks[id] = value;
 
-    final newData = Map<String, dynamic>.from(widget.data);
+    final newData = Map<String, dynamic>.from(_workingData);
     final allLogs = _asMap(newData['todayAmalLogs']);
+
     allLogs[_todayKey] = {
       'checks': nextChecks,
       'requiredIds': _items.map((item) => item['id']!).toList(),
     };
+
     newData['todayAmalLogs'] = allLogs;
 
     setState(() {
       _checks = nextChecks;
+      _workingData = newData;
       _saving = true;
     });
 
     try {
       await widget.onDataChanged(newData);
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
-        setState(() => _checks = previousChecks);
+        setState(() {
+          _checks = previousChecks;
+          _workingData = previousData;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.english
+                  ? 'Could not save. Please try again.'
+                  : 'ডেটা সংরক্ষণ হয়নি। আবার চেষ্টা করুন।',
+            ),
+          ),
+        );
       }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) {
+        setState(() {
+          _saving = false;
+        });
+      }
     }
   }
 
@@ -127,7 +150,9 @@ class _TodayAmalScreenState extends State<TodayAmalScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.english ? 'Today’s Amal' : 'আজকের আমল'),
+        title: Text(
+          widget.english ? 'Today’s Amal' : 'আজকের আমল',
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -142,14 +167,18 @@ class _TodayAmalScreenState extends State<TodayAmalScreen> {
                     widget.english
                         ? 'Today’s progress'
                         : 'আজকের অগ্রগতি',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
                   Text('$completed / $total'),
                   const SizedBox(height: 10),
-                  LinearProgressIndicator(value: ratio, minHeight: 9),
+                  LinearProgressIndicator(
+                    value: ratio,
+                    minHeight: 9,
+                  ),
                   const SizedBox(height: 8),
                   Text(
                     widget.english
@@ -157,23 +186,33 @@ class _TodayAmalScreenState extends State<TodayAmalScreen> {
                         : 'বর্জনীয় কাজের পাশে টিক দেবে যদি আজ সেই কাজ থেকে বিরত থাকতে পারো।',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
+                  if (_saving) ...[
+                    const SizedBox(height: 10),
+                    const LinearProgressIndicator(),
+                  ],
                 ],
               ),
             ),
           ),
           const SizedBox(height: 14),
           _section(
-            title: widget.english ? 'Obligatory duties' : 'ফরজ আমল ও দায়িত্ব',
+            title: widget.english
+                ? 'Obligatory duties'
+                : 'ফরজ আমল ও দায়িত্ব',
             category: 'farz',
             icon: Icons.mosque_outlined,
           ),
           _section(
-            title: widget.english ? 'Sunnah and voluntary deeds' : 'সুন্নাহ ও নফল আমল',
+            title: widget.english
+                ? 'Sunnah and voluntary deeds'
+                : 'সুন্নাহ ও নফল আমল',
             category: 'sunnah',
             icon: Icons.auto_stories_outlined,
           ),
           _section(
-            title: widget.english ? 'Things to avoid' : 'নিষিদ্ধ ও বর্জনীয় কাজ',
+            title: widget.english
+                ? 'Things to avoid'
+                : 'নিষিদ্ধ ও বর্জনীয় কাজ',
             category: 'avoid',
             icon: Icons.shield_outlined,
           ),
@@ -184,6 +223,7 @@ class _TodayAmalScreenState extends State<TodayAmalScreen> {
                 : 'এটি ব্যক্তিগত আত্মসমালোচনার তালিকা; ফতোয়া নয়। কিছু দায়িত্ব ব্যক্তির পরিস্থিতির ওপর নির্ভরশীল।',
             style: Theme.of(context).textTheme.bodySmall,
           ),
+          const SizedBox(height: 20),
         ],
       ),
     );
@@ -204,17 +244,24 @@ class _TodayAmalScreenState extends State<TodayAmalScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 6,
+              ),
               child: Row(
                 children: [
-                  Icon(icon, color: Theme.of(context).colorScheme.primary),
+                  Icon(
+                    icon,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       title,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                   ),
                   Text('${_doneCount(items)}/${items.length}'),
@@ -224,7 +271,9 @@ class _TodayAmalScreenState extends State<TodayAmalScreen> {
             const Divider(),
             ...items.map((item) {
               final id = item['id']!;
+
               return CheckboxListTile(
+                key: ValueKey(id),
                 value: _checks[id] == true,
                 onChanged: _saving
                     ? null
