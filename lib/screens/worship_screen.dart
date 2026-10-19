@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import '../widgets/animated_header.dart';
 
@@ -51,13 +50,21 @@ class _WorshipScreenState extends State<WorshipScreen> {
   String _stageName(int stage) {
     switch (stage) {
       case 3:
-        return widget.english ? 'On the Path of the Salihin' : 'সালেহীনের পথে';
+        return widget.english
+            ? 'On the Path of the Salihin'
+            : 'সালেহীনের পথে';
       case 7:
-        return widget.english ? 'On the Path of the Muttaqin' : 'মুত্তাকীনের পথে';
+        return widget.english
+            ? 'On the Path of the Muttaqin'
+            : 'মুত্তাকীনের পথে';
       case 10:
-        return widget.english ? 'On the Path of the Muhsinin' : 'মুহসিনীনদের পথে';
+        return widget.english
+            ? 'On the Path of the Muhsinin'
+            : 'মুহসিনীনদের পথে';
       default:
-        return widget.english ? 'On the Path of the Siddiqin' : 'সিদ্দিকীনের পথে';
+        return widget.english
+            ? 'On the Path of the Siddiqin'
+            : 'সিদ্দিকীনের পথে';
     }
   }
 
@@ -84,7 +91,10 @@ class _WorshipScreenState extends State<WorshipScreen> {
 
   bool get _isFriday => DateTime.now().weekday == DateTime.friday;
 
-  List<Map<String, String>> _tasks(int stage, {required bool friday}) {
+  List<Map<String, String>> _tasks(
+    int stage, {
+    required bool friday,
+  }) {
     final tasks = <Map<String, String>>[];
 
     void add(String id, String bn, String en) {
@@ -92,45 +102,143 @@ class _WorshipScreenState extends State<WorshipScreen> {
     }
 
     if (stage == 3) {
-      add('fajr_15', 'ফজরের সালাত আজানের ১৫ মিনিটের মধ্যে', 'Fajr prayer within 15 minutes of adhan');
-      add('dhuhr_15', 'যোহরের সালাত আজানের ১৫ মিনিটের মধ্যে', 'Dhuhr prayer within 15 minutes of adhan');
-      add('asr_15', 'আসরের সালাত আজানের ১৫ মিনিটের মধ্যে', 'Asr prayer within 15 minutes of adhan');
-      add('maghrib_15', 'মাগরিবের সালাত আজানের ১৫ মিনিটের মধ্যে', 'Maghrib prayer within 15 minutes of adhan');
-      add('isha_mosque', 'ইশার সালাত মসজিদে আদায়', 'Perform Isha prayer in the mosque');
+      add(
+        'fajr_15',
+        'ফজরের সালাত আজানের ১৫ মিনিটের মধ্যে',
+        'Fajr prayer within 15 minutes of adhan',
+      );
+      add(
+        'dhuhr_15',
+        'যোহরের সালাত আজানের ১৫ মিনিটের মধ্যে',
+        'Dhuhr prayer within 15 minutes of adhan',
+      );
+      add(
+        'asr_15',
+        'আসরের সালাত আজানের ১৫ মিনিটের মধ্যে',
+        'Asr prayer within 15 minutes of adhan',
+      );
+      add(
+        'maghrib_15',
+        'মাগরিবের সালাত আজানের ১৫ মিনিটের মধ্যে',
+        'Maghrib prayer within 15 minutes of adhan',
+      );
+      add(
+        'isha_mosque',
+        'ইশার সালাত মসজিদে আদায়',
+        'Perform Isha prayer in the mosque',
+      );
+
       if (friday) {
-        add('jumuah_first', 'জুমার সালাত প্রথম কাতারে আদায়', 'Perform Jumuah prayer in the first row');
+        add(
+          'jumuah_first',
+          'জুমার সালাত প্রথম কাতারে আদায়',
+          'Perform Jumuah prayer in the first row',
+        );
       }
+
       add('no_gheebah', 'গীবত থেকে বিরত থাকা', 'Avoid backbiting');
     } else if (stage == 7) {
-      add('dhuhr_15', 'যোহরের সালাত আজানের ১৫ মিনিটের মধ্যে', 'Dhuhr prayer within 15 minutes of adhan');
-      add('asr_15', 'আসরের সালাত আজানের ১৫ মিনিটের মধ্যে', 'Asr prayer within 15 minutes of adhan');
-      add('maghrib_15', 'মাগরিবের সালাত আজানের ১৫ মিনিটের মধ্যে', 'Maghrib prayer within 15 minutes of adhan');
-      add('fajr_first', 'ফজরের সালাত জামাতের প্রথম তাকবিরে', 'Join the first takbir of Fajr congregation');
-      add('isha_first', 'ইশার সালাত জামাতের প্রথম তাকবিরে', 'Join the first takbir of Isha congregation');
+      add(
+        'dhuhr_15',
+        'যোহরের সালাত আজানের ১৫ মিনিটের মধ্যে',
+        'Dhuhr prayer within 15 minutes of adhan',
+      );
+      add(
+        'asr_15',
+        'আসরের সালাত আজানের ১৫ মিনিটের মধ্যে',
+        'Asr prayer within 15 minutes of adhan',
+      );
+      add(
+        'maghrib_15',
+        'মাগরিবের সালাত আজানের ১৫ মিনিটের মধ্যে',
+        'Maghrib prayer within 15 minutes of adhan',
+      );
+      add(
+        'fajr_first',
+        'ফজরের সালাত জামাতের প্রথম তাকবিরে',
+        'Join the first takbir of Fajr congregation',
+      );
+      add(
+        'isha_first',
+        'ইশার সালাত জামাতের প্রথম তাকবিরে',
+        'Join the first takbir of Isha congregation',
+      );
+
       if (friday) {
-        add('jumuah_first', 'জুমার সালাত প্রথম কাতারে আদায়', 'Perform Jumuah prayer in the first row');
+        add(
+          'jumuah_first',
+          'জুমার সালাত প্রথম কাতারে আদায়',
+          'Perform Jumuah prayer in the first row',
+        );
       }
+
       add('no_gheebah', 'গীবত থেকে বিরত থাকা', 'Avoid backbiting');
       add('no_lie', 'মিথ্যা থেকে বিরত থাকা', 'Avoid lying');
-      add('no_pride', 'আত্মপ্রশংসা ও অহংকার থেকে বিরত থাকা', 'Avoid self-praise and arrogance');
+      add(
+        'no_pride',
+        'আত্মপ্রশংসা ও অহংকার থেকে বিরত থাকা',
+        'Avoid self-praise and arrogance',
+      );
       add('control_anger', 'রাগ নিয়ন্ত্রণ করা', 'Control anger');
-      add('soft_voice', 'কথা বলার সময় গলা না চড়ানো', 'Avoid raising your voice while speaking');
+      add(
+        'soft_voice',
+        'কথা বলার সময় গলা না চড়ানো',
+        'Avoid raising your voice while speaking',
+      );
     } else {
-      add('five_first', 'পাঁচ ওয়াক্ত সালাত জামাতের প্রথম তাকবিরে আদায়', 'Join the first takbir of all five daily congregational prayers');
-      add('fajr_dhikr', 'ফজরের পর সূর্যোদয় পর্যন্ত মসজিদে থেকে যিকির', 'Remain in the mosque for dhikr after Fajr until sunrise');
+      add(
+        'five_first',
+        'পাঁচ ওয়াক্ত সালাত জামাতের প্রথম তাকবিরে আদায়',
+        'Join the first takbir of all five daily congregational prayers',
+      );
+      add(
+        'fajr_dhikr',
+        'ফজরের পর সূর্যোদয় পর্যন্ত মসজিদে থেকে যিকির',
+        'Remain in the mosque for dhikr after Fajr until sunrise',
+      );
       add('yasin', 'সূরা ইয়াসিন তিলাওয়াত', 'Recite Surah Yasin');
-      add('duha_four', 'সূর্যোদয়ের পরে চার রাকাত সালাতুদ দুহা', 'Perform four rakats of Duha after sunrise');
-      add('mulk', 'ঘুমানোর আগে সূরা মুলক তিলাওয়াত', 'Recite Surah Al-Mulk before sleeping');
-      add('tahajjud_four', 'কমপক্ষে চার রাকাত তাহাজ্জুদ', 'Perform at least four rakats of Tahajjud');
+      add(
+        'duha_four',
+        'সূর্যোদয়ের পরে চার রাকাত সালাতুদ দুহা',
+        'Perform four rakats of Duha after sunrise',
+      );
+      add(
+        'mulk',
+        'ঘুমানোর আগে সূরা মুলক তিলাওয়াত',
+        'Recite Surah Al-Mulk before sleeping',
+      );
+      add(
+        'tahajjud_four',
+        'কমপক্ষে চার রাকাত তাহাজ্জুদ',
+        'Perform at least four rakats of Tahajjud',
+      );
+
       if (friday) {
-        add('jumuah_first', 'জুমার সালাত প্রথম কাতারে আদায়', 'Perform Jumuah prayer in the first row');
+        add(
+          'jumuah_first',
+          'জুমার সালাত প্রথম কাতারে আদায়',
+          'Perform Jumuah prayer in the first row',
+        );
       }
+
       add('no_gheebah', 'গীবত থেকে বিরত থাকা', 'Avoid backbiting');
       add('no_lie', 'মিথ্যা থেকে বিরত থাকা', 'Avoid lying');
-      add('no_pride', 'আত্মপ্রশংসা ও অহংকার থেকে বিরত থাকা', 'Avoid self-praise and arrogance');
+      add(
+        'no_pride',
+        'আত্মপ্রশংসা ও অহংকার থেকে বিরত থাকা',
+        'Avoid self-praise and arrogance',
+      );
       add('control_anger', 'রাগ নিয়ন্ত্রণ করা', 'Control anger');
-      add('stay_silent', 'সমালোচনা বা মৌখিক আক্রমণে সংযত থাকা', 'Stay composed when criticized or verbally attacked');
-      add('no_riya', 'রিয়া ও লোকদেখানো আমল থেকে বিরত থাকা', 'Avoid showing off in worship');
+      add(
+        'stay_silent',
+        'সমালোচনা বা মৌখিক আক্রমণে সংযত থাকা',
+        'Stay composed when criticized or verbally attacked',
+      );
+      add(
+        'no_riya',
+        'রিয়া ও লোকদেখানো আমল থেকে বিরত থাকা',
+        'Avoid showing off in worship',
+      );
     }
 
     return tasks;
@@ -164,7 +272,6 @@ class _WorshipScreenState extends State<WorshipScreen> {
     final updated = Map<String, dynamic>.from(widget.data);
     final tracker = _map(updated['amalTracker']);
     final todayDate = DateTime.now();
-    final todayKey = _dateKey(todayDate);
 
     if (tracker.isEmpty) {
       final yesterday = todayDate.subtract(const Duration(days: 1));
@@ -178,21 +285,25 @@ class _WorshipScreenState extends State<WorshipScreen> {
     }
 
     int stage = _stage(tracker);
-    int progress = _number(tracker['progress']);
-    progress = progress.clamp(0, stage);
+    int progress = _number(tracker['progress']).clamp(0, stage).toInt();
     final logs = _map(tracker['logs']);
 
     DateTime lastProcessed;
     try {
       lastProcessed = _dateFromKey(
-        (tracker['lastProcessedDate'] ?? _dateKey(todayDate.subtract(const Duration(days: 1)))).toString(),
+        (tracker['lastProcessedDate'] ??
+                _dateKey(todayDate.subtract(const Duration(days: 1))))
+            .toString(),
       );
     } catch (_) {
       lastProcessed = todayDate.subtract(const Duration(days: 1));
     }
 
-    final yesterday = DateTime(todayDate.year, todayDate.month, todayDate.day)
-        .subtract(const Duration(days: 1));
+    final yesterday = DateTime(
+      todayDate.year,
+      todayDate.month,
+      todayDate.day,
+    ).subtract(const Duration(days: 1));
 
     bool changed = false;
     var date = lastProcessed.add(const Duration(days: 1));
@@ -201,8 +312,11 @@ class _WorshipScreenState extends State<WorshipScreen> {
       final key = _dateKey(date);
       final log = _map(logs[key]);
       final checks = _map(log['checks']);
-      final requiredIds = (log['requiredIds'] is List)
-          ? List<String>.from(log['requiredIds'])
+
+      final requiredIds = log['requiredIds'] is List
+          ? (log['requiredIds'] as List)
+              .map((id) => id.toString())
+              .toList()
           : <String>[];
 
       final complete = requiredIds.isNotEmpty &&
@@ -210,6 +324,7 @@ class _WorshipScreenState extends State<WorshipScreen> {
 
       if (complete) {
         progress++;
+
         if (stage != 40 && progress >= stage) {
           if (stage == 3) {
             stage = 7;
@@ -218,6 +333,7 @@ class _WorshipScreenState extends State<WorshipScreen> {
           } else if (stage == 10) {
             stage = 40;
           }
+
           progress = 0;
         } else if (stage == 40 && progress > 40) {
           progress = 40;
@@ -230,6 +346,7 @@ class _WorshipScreenState extends State<WorshipScreen> {
         } else if (stage == 40) {
           stage = 10;
         }
+
         progress = 0;
       }
 
@@ -247,7 +364,11 @@ class _WorshipScreenState extends State<WorshipScreen> {
     }
   }
 
-  void _saveCheck(String id, bool checked, List<Map<String, String>> tasks) {
+  void _saveCheck(
+    String id,
+    bool checked,
+    List<Map<String, String>> tasks,
+  ) {
     final updated = Map<String, dynamic>.from(widget.data);
     final tracker = _map(updated['amalTracker']);
     final logs = _map(tracker['logs']);
@@ -257,7 +378,9 @@ class _WorshipScreenState extends State<WorshipScreen> {
     checks[id] = checked;
 
     todayLog['checks'] = checks;
-    todayLog['requiredIds'] = tasks.map((task) => task['id']!).toList();
+    todayLog['requiredIds'] =
+        tasks.map((task) => task['id']!).toList();
+
     logs[_today] = todayLog;
 
     tracker['stage'] = _stage(tracker);
@@ -274,20 +397,23 @@ class _WorshipScreenState extends State<WorshipScreen> {
   Widget build(BuildContext context) {
     final tracker = _map(widget.data['amalTracker']);
     final stage = _stage(tracker);
-    final progress = _number(tracker['progress']).clamp(0, stage);
+    final progress =
+        _number(tracker['progress']).clamp(0, stage).toInt();
+
     final logs = _map(tracker['logs']);
     final todayLog = _map(logs[_today]);
     final checks = _map(todayLog['checks']);
     final tasks = _tasks(stage, friday: _isFriday);
 
-    final done = tasks.where((task) => checks[task['id']] == true).length;
+    final done =
+        tasks.where((task) => checks[task['id']] == true).length;
     final allDone = tasks.isNotEmpty && done == tasks.length;
     final dayNumber = stage == 40 && progress >= 40 ? 40 : progress + 1;
     final percent = tasks.isEmpty ? 0.0 : done / tasks.length;
 
     final colorScheme = Theme.of(context).colorScheme;
     final green = colorScheme.primary;
-    final gold = const Color(0xFFB69A55);
+    const gold = Color(0xFFB69A55);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -298,10 +424,12 @@ class _WorshipScreenState extends State<WorshipScreen> {
               ? 'Build consistency, one day at a time.'
               : 'প্রতিদিনের আমলে ধারাবাহিকতা গড়ে তুলুন।',
           icon: Icons.auto_awesome_rounded,
-          colors: const [Color(0xFF39775A), Color(0xFFB69A55)],
+          colors: const [
+            Color(0xFF39775A),
+            Color(0xFFB69A55),
+          ],
         ),
         const SizedBox(height: 16),
-
         Card(
           child: Padding(
             padding: const EdgeInsets.all(18),
@@ -326,7 +454,11 @@ class _WorshipScreenState extends State<WorshipScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(widget.english ? 'Stage progress' : 'ধাপের অগ্রগতি'),
+                    Text(
+                      widget.english
+                          ? 'Stage progress'
+                          : 'ধাপের অগ্রগতি',
+                    ),
                     Text('$progress / $stage'),
                   ],
                 ),
@@ -347,9 +479,7 @@ class _WorshipScreenState extends State<WorshipScreen> {
             ),
           ),
         ),
-
         const SizedBox(height: 12),
-
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -392,9 +522,7 @@ class _WorshipScreenState extends State<WorshipScreen> {
             ),
           ),
         ),
-
         const SizedBox(height: 8),
-
         ...tasks.map((task) {
           final id = task['id']!;
           final checked = checks[id] == true;
@@ -404,18 +532,21 @@ class _WorshipScreenState extends State<WorshipScreen> {
             child: CheckboxListTile(
               value: checked,
               controlAffinity: ListTileControlAffinity.leading,
-              title: Text(widget.english ? task['en']! : task['bn']!),
+              title: Text(
+                widget.english ? task['en']! : task['bn']!,
+              ),
               secondary: Icon(
-                checked ? Icons.check_circle_rounded : Icons.circle_outlined,
+                checked
+                    ? Icons.check_circle_rounded
+                    : Icons.circle_outlined,
                 color: checked ? green : null,
               ),
-              onChanged: (value) => _saveCheck(id, value ?? false, tasks),
+              onChanged: (value) =>
+                  _saveCheck(id, value ?? false, tasks),
             ),
           );
         }),
-
         const SizedBox(height: 12),
-
         Card(
           child: Padding(
             padding: const EdgeInsets.all(14),
