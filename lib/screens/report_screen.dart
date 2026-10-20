@@ -52,7 +52,13 @@ class _ReportScreenState extends State<ReportScreen> {
   };
 
   Map<String, dynamic> _map(dynamic value) {
-    if (value is Map) return Map<String, dynamic>.from(value);
+    if (value is Map) {
+      try {
+        return Map<String, dynamic>.from(value);
+      } catch (_) {
+        return <String, dynamic>{};
+      }
+    }
     return <String, dynamic>{};
   }
 
@@ -64,83 +70,137 @@ class _ReportScreenState extends State<ReportScreen> {
     return DateTime(now.year, now.month, now.day);
   }
 
-  List<DateTime> get _days {
+  DateTime get _periodStart {
     final today = _today;
-    late DateTime start;
 
-    if (_period == 'weekly') {
-      start = today.subtract(Duration(days: today.weekday - 1));
-    } else if (_period == 'monthly') {
-      start = DateTime(today.year, today.month, 1);
-    } else {
-      start = DateTime(today.year, 1, 1);
+    switch (_period) {
+      case 'weekly':
+        return today.subtract(
+          Duration(days: today.weekday - 1),
+        );
+      case 'monthly':
+        return DateTime(today.year, today.month, 1);
+      case 'yearly':
+        return DateTime(today.year, 1, 1);
+      default:
+        return today;
     }
+  }
+
+  List<DateTime> get _days {
+    final start = _periodStart;
+    final count = _today.difference(start).inDays + 1;
 
     return List.generate(
-      today.difference(start).inDays + 1,
+      count,
       (index) => start.add(Duration(days: index)),
     );
   }
 
-  Map<String, dynamic> _log(DateTime date) {
-    final all = _map(widget.data['todayAmalLogs']);
-    return _map(all[_key(date)]);
-  }
+  Map<String, dynamic> _allLogs() =>
+      _map(widget.data['todayAmalLogs']);
+
+  Map<String, dynamic> _log(DateTime date) =>
+      _map(_allLogs()[_key(date)]);
 
   Map<String, dynamic> _checks(DateTime date) =>
       _map(_log(date)['checks']);
 
   List<String> _required(DateTime date) {
     final raw = _log(date)['requiredIds'];
-    if (raw is List) return raw.map((e) => e.toString()).toList();
-    return const [];
+
+    if (raw is List) {
+      return raw.map((value) => value.toString()).toSet().toList();
+    }
+
+    return const <String>[];
   }
+
+  bool _hasRecord(DateTime date) =>
+      _allLogs().containsKey(_key(date));
 
   int _done(DateTime date) {
     final required = _required(date);
     final checks = _checks(date);
+
     return required.where((id) => checks[id] == true).length;
   }
 
   int _total(DateTime date) => _required(date).length;
 
-  bool _hasRecord(DateTime date) =>
-      _map(widget.data['todayAmalLogs']).containsKey(_key(date));
-
   double _ratio(DateTime date) {
     final total = _total(date);
     if (total == 0) return 0;
+
     return (_done(date) / total).clamp(0.0, 1.0).toDouble();
   }
 
-  int get _doneTotal => _days.fold(0, (sum, date) => sum + _done(date));
-  int get _possibleTotal => _days.fold(0, (sum, date) => sum + _total(date));
+  int get _doneTotal =>
+      _days.fold(0, (sum, date) => sum + _done(date));
+
+  int get _possibleTotal =>
+      _days.fold(0, (sum, date) => sum + _total(date));
 
   double get _ratioTotal {
     if (_possibleTotal == 0) return 0;
-    return (_doneTotal / _possibleTotal).clamp(0.0, 1.0).toDouble();
+
+    return (_doneTotal / _possibleTotal)
+        .clamp(0.0, 1.0)
+        .toDouble();
   }
+
+  int get _recordedDays =>
+      _days.where(_hasRecord).length;
 
   List<String> get _ids {
     final ids = <String>{};
+
     for (final date in _days) {
       ids.addAll(_required(date));
-      ids.addAll(_checks(date).keys.map((e) => e.toString()));
+      ids.addAll(_checks(date).keys.map((key) => key.toString()));
     }
+
     final result = ids.toList()..sort();
     return result;
   }
 
   String _label(String id) {
     final pair = _labels[id];
+
     if (pair == null) return id;
+
     return widget.english ? pair['en']! : pair['bn']!;
   }
 
   String _dateLabel(DateTime date) {
     if (widget.english) return _key(date);
+
     return '${date.day.toString().padLeft(2, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-${date.year}';
+  }
+
+  String get _periodLabel {
+    if (widget.english) {
+      switch (_period) {
+        case 'weekly':
+          return 'This week';
+        case 'monthly':
+          return 'This month';
+        case 'yearly':
+          return 'This year';
+      }
+    } else {
+      switch (_period) {
+        case 'weekly':
+          return 'চলতি সপ্তাহ';
+        case 'monthly':
+          return 'চলতি মাস';
+        case 'yearly':
+          return 'চলতি বছর';
+      }
+    }
+
+    return '';
   }
 
   Map<String, int> _statsForId(String id) {
@@ -153,20 +213,24 @@ class _ReportScreenState extends State<ReportScreen> {
         if (_checks(date)[id] == true) done++;
       }
     }
+
     return {'done': done, 'total': total};
   }
 
   Map<String, int> _monthStats(int month) {
     final today = _today;
     final start = DateTime(today.year, month, 1);
-    final end = month == today.month ? today : DateTime(today.year, month + 1, 0);
+    final lastDay = DateTime(today.year, month + 1, 0);
+    final end = lastDay.isAfter(today) ? today : lastDay;
 
     int done = 0;
     int total = 0;
 
-    for (DateTime date = start;
-        !date.isAfter(end);
-        date = date.add(const Duration(days: 1))) {
+    for (
+      DateTime date = start;
+      !date.isAfter(end);
+      date = date.add(const Duration(days: 1))
+    ) {
       done += _done(date);
       total += _total(date);
     }
@@ -180,23 +244,145 @@ class _ReportScreenState extends State<ReportScreen> {
       'মে', 'জুন', 'জুলাই', 'আগস্ট',
       'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর',
     ];
+
     const en = [
       'January', 'February', 'March', 'April',
       'May', 'June', 'July', 'August',
       'September', 'October', 'November', 'December',
     ];
+
     return widget.english ? en[month - 1] : bn[month - 1];
+  }
+
+  Widget _sectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        title,
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+      ),
+    );
+  }
+
+  Widget _emptyCard(String message) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(message),
+      ),
+    );
+  }
+
+  Widget _monthCard(int month) {
+    final stats = _monthStats(month);
+    final done = stats['done']!;
+    final total = stats['total']!;
+    final ratio = total == 0 ? 0.0 : done / total;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text(_monthName(month))),
+                Text('${(ratio * 100).round()}%'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: ratio),
+            const SizedBox(height: 6),
+            Text('$done / $total'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _amalCard(String id) {
+    final stats = _statsForId(id);
+    final done = stats['done']!;
+    final total = stats['total']!;
+    final ratio = total == 0 ? 0.0 : done / total;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text(_label(id))),
+                const SizedBox(width: 8),
+                Text('$done/$total'),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LinearProgressIndicator(value: ratio),
+            const SizedBox(height: 4),
+            Text(
+              '${(ratio * 100).round()}%',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dailyCard(DateTime date) {
+    final done = _done(date);
+    final total = _total(date);
+    final hasRecord = _hasRecord(date);
+    final ratio = _ratio(date);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          child: Text('${date.day}'),
+        ),
+        title: Text(_dateLabel(date)),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              LinearProgressIndicator(value: ratio),
+              const SizedBox(height: 5),
+              Text(
+                !hasRecord
+                    ? (widget.english ? 'No record' : 'তথ্য সংরক্ষিত নেই')
+                    : '${(ratio * 100).round()}%',
+              ),
+            ],
+          ),
+        ),
+        trailing: Text(
+          '$done/$total',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final english = widget.english;
+    final recordedDays = _recordedDays;
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         Text(
-          english ? 'Today’s Amal report' : 'আজকের আমলের রিপোর্ট',
+          english ? 'Amal report' : 'আমলের রিপোর্ট',
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -204,8 +390,17 @@ class _ReportScreenState extends State<ReportScreen> {
         const SizedBox(height: 6),
         Text(
           english
-              ? 'Reports are based only on the Today’s Amal checklist.'
-              : 'শুধু “আজকের আমল” তালিকার তথ্য দিয়ে রিপোর্ট তৈরি হয়েছে।',
+              ? 'Report period: $_periodLabel. Only saved Today’s Amal checklist data is included.'
+              : 'রিপোর্টের সময়সীমা: $_periodLabel। শুধু সংরক্ষিত “আজকের আমল” তালিকার তথ্য গণনা করা হয়েছে।',
+        ),
+        const SizedBox(height: 8),
+        Text(
+          english
+              ? 'Period: ${_dateLabel(_periodStart)} – ${_dateLabel(_today)}'
+              : 'তারিখ: ${_dateLabel(_periodStart)} – ${_dateLabel(_today)}',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
         ),
         const SizedBox(height: 18),
         SegmentedButton<String>(
@@ -227,7 +422,11 @@ class _ReportScreenState extends State<ReportScreen> {
             ),
           ],
           selected: {_period},
-          onSelectionChanged: (value) => setState(() => _period = value.first),
+          onSelectionChanged: (value) {
+            setState(() {
+              _period = value.first;
+            });
+          },
         ),
         const SizedBox(height: 16),
         Card(
@@ -250,13 +449,17 @@ class _ReportScreenState extends State<ReportScreen> {
                       ),
                 ),
                 const SizedBox(height: 8),
-                LinearProgressIndicator(value: _ratioTotal, minHeight: 9),
+                LinearProgressIndicator(
+                  value: _ratioTotal,
+                  minHeight: 9,
+                ),
                 const SizedBox(height: 8),
                 Text('$_doneTotal / $_possibleTotal'),
+                const SizedBox(height: 4),
                 Text(
                   english
-                      ? '${_days.length} days in this period'
-                      : 'এই সময়সীমায় ${_days.length} দিন',
+                      ? '${_days.length} calendar days; $recordedDays days with saved records'
+                      : 'মোট ${_days.length} দিন; তথ্য সংরক্ষিত আছে $recordedDays দিনে',
                 ),
               ],
             ),
@@ -264,130 +467,33 @@ class _ReportScreenState extends State<ReportScreen> {
         ),
         const SizedBox(height: 18),
         if (_period == 'yearly') ...[
-          Text(
-            english ? 'Monthly summary' : 'মাসভিত্তিক হিসাব',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+          _sectionTitle(english ? 'Monthly summary' : 'মাসভিত্তিক হিসাব'),
+          ...List.generate(
+            _today.month,
+            (index) => _monthCard(index + 1),
           ),
-          const SizedBox(height: 8),
-          ...List.generate(DateTime.now().month, (index) {
-            final month = index + 1;
-            final stats = _monthStats(month);
-            final total = stats['total']!;
-            final done = stats['done']!;
-            final ratio = total == 0 ? 0.0 : done / total;
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: Text(_monthName(month))),
-                        Text('${(ratio * 100).round()}%'),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(value: ratio),
-                    const SizedBox(height: 6),
-                    Text('$done / $total'),
-                  ],
-                ),
-              ),
-            );
-          }),
           const SizedBox(height: 12),
         ],
-        Text(
-          english ? 'Amal breakdown' : 'আমলভিত্তিক হিসাব',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        const SizedBox(height: 8),
+        _sectionTitle(english ? 'Amal breakdown' : 'আমলভিত্তিক হিসাব'),
         if (_ids.isEmpty)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                english
-                    ? 'No checklist records found for this period.'
-                    : 'এই সময়সীমায় এখনো কোনো আমলের তথ্য সংরক্ষিত নেই।',
-              ),
-            ),
+          _emptyCard(
+            english
+                ? 'No checklist records found for this period.'
+                : 'এই সময়সীমায় কোনো আমলের তথ্য সংরক্ষিত নেই।',
           )
         else
-          ..._ids.map((id) {
-            final stats = _statsForId(id);
-            final done = stats['done']!;
-            final total = stats['total']!;
-            final ratio = total == 0 ? 0.0 : done / total;
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(child: Text(_label(id))),
-                        Text('$done/$total'),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(value: ratio),
-                  ],
-                ),
-              ),
-            );
-          }),
+          ..._ids.map(_amalCard),
         const SizedBox(height: 12),
-        Text(
-          english ? 'Daily history' : 'দিনভিত্তিক হিসাব',
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-        const SizedBox(height: 8),
-        ...(_period == 'yearly' ? _days.reversed.take(31) : _days.reversed)
-            .map((date) {
-          final done = _done(date);
-          final total = _total(date);
-          final hasRecord = _hasRecord(date);
-
-          return Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: CircleAvatar(child: Text('${date.day}')),
-              title: Text(_dateLabel(date)),
-              subtitle: Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    LinearProgressIndicator(value: _ratio(date)),
-                    const SizedBox(height: 5),
-                    Text(
-                      !hasRecord
-                          ? (english ? 'No record' : 'তথ্য সংরক্ষিত নেই')
-                          : '${(_ratio(date) * 100).round()}%',
-                    ),
-                  ],
-                ),
-              ),
-              trailing: Text(
-                '$done/$total',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ),
-          );
-        }),
+        _sectionTitle(english ? 'Daily history' : 'দিনভিত্তিক হিসাব'),
+        if (_days.every((date) => !_hasRecord(date)))
+          _emptyCard(
+            english
+                ? 'No saved records for this period.'
+                : 'এই সময়সীমায় কোনো সংরক্ষিত তথ্য নেই।',
+          )
+        else
+          ..._days.reversed.map(_dailyCard),
+        const SizedBox(height: 20),
       ],
     );
   }
