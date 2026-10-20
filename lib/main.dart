@@ -295,12 +295,12 @@ class _PathcholaAppState extends State<PathcholaApp> {
         builder: (dialogContext) {
           return AlertDialog(
             title: Text(
-              _english ? 'Exit Pathchola?' : 'অ্যাপ বন্ধ করবেন?',
+              _english ? 'Exit Prohori?' : 'অ্যাপ বন্ধ করবেন?',
             ),
             content: Text(
               _english
                   ? 'Do you want to close the app?'
-                  : 'আপনি কি পথচলা অ্যাপ থেকে বের হতে চান?',
+                  : 'আপনি কি প্রহরী অ্যাপ থেকে বের হতে চান?',
             ),
             actions: [
               TextButton(
